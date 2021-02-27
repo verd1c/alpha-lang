@@ -16,7 +16,7 @@ int main(int argc, char** argv){
 
 
     while((r = alpha_yylex(&token)) != 0){
-        printf("Found token %s in line %d\n", token.name, token.line_number);
+        printf("%d: #%d \"%s\" %s\n", token.line_number, token.token_no, token.text, category_names[token.category]);
     }
 
     return 0;
