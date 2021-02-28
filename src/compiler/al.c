@@ -14,9 +14,13 @@ int main(int argc, char** argv){
     fp = fopen(filename,"r"); 
     yyin = fp;
 
+    struct alpha_token_t *token_list = (struct alpha_token_t*)malloc(sizeof(struct alpha_token_t));
+    token_list->line_number = 25;
+    yylex(token_list);
 
-    while((r = alpha_yylex(&token)) != 0){
-        printf("%d: #%d \"%s\" %s\n", token.line_number, token.token_no, token.text, category_names[token.category]);
+    while(token_list){
+        printf("%d: #%d \"%s\" %s\n", token_list->line_number, token_list->token_no, token_list->text, category_names[token_list->category]);
+        token_list = token_list->next;
     }
 
     return 0;
