@@ -1,3 +1,3 @@
 default:
 	lex lex.l
-	gcc al.c lex.yy.c token_string.c token_type.c -o scanner
+	gcc al.c lex.yy.c token_type.c -o scanner

@@ -2,6 +2,23 @@
 #include <stdlib.h>
 #include "../include/lex.h"
 
+/*
+* General categories in string format used for printing
+*/
+const char* category_names[] = {
+    "IDENT",
+    "KEYWORD",
+    "OPERATOR",
+    "INTCONST",
+    "REALCONST",
+    "PUNCTUATION",
+    "STRING",
+    "COMMENT"
+};
+
+/*
+* Specific categories in string format used for printing
+*/
 const char* token_category_name[] = {
     "IF",
     "ELSE",
@@ -49,6 +66,16 @@ const char* token_category_name[] = {
     "NESTED_COMMENT"
 };
 
+/*
+* Returns token specific category enumeration given its string representation
+*
+* params:
+*
+* cat               token general category
+* text              token string representation
+*
+* returns enum      the token's specific category
+*/
 enum token_category find_token_type(enum category cat, char* text) {
     if (cat == KEYWORD) {
         if (strcmp(text, "if") == 0) return IF;
@@ -68,17 +95,17 @@ enum token_category find_token_type(enum category cat, char* text) {
         else if (strcmp(text, "nil") == 0) return NIL;
     }else if (cat == OPERATOR) {
         if (strcmp(text, "=") == 0) return EQUALS;
-        else if (strcmp(text, "+") == 0) return PLUS;
-        else if (strcmp(text, "-") == 0) return MINUS;
-        else if (strcmp(text, "*") == 0) return MULT;
-        else if (strcmp(text, "/") == 0) return DIV;
-        else if (strcmp(text, "%") == 0) return MOD;
+        else if (strcmp(text, "+" ) == 0) return PLUS;
+        else if (strcmp(text, "-" ) == 0) return MINUS;
+        else if (strcmp(text, "*" ) == 0) return MULT;
+        else if (strcmp(text, "/" ) == 0) return DIV;
+        else if (strcmp(text, "%" ) == 0) return MOD;
         else if (strcmp(text, "==") == 0) return EQUALS_EQUALS;
         else if (strcmp(text, "!=") == 0) return NOT_EQUALS;
         else if (strcmp(text, "++") == 0) return PLUS_PLUS;
         else if (strcmp(text, "--") == 0) return MINUS_MINUS;
-        else if (strcmp(text, ">") == 0) return GREATER_THAN;
-        else if (strcmp(text, "<") == 0) return LESS_THAN;
+        else if (strcmp(text, ">" ) == 0) return GREATER_THAN;
+        else if (strcmp(text, "<" ) == 0) return LESS_THAN;
         else if (strcmp(text, ">=") == 0) return GREATER_OR_EQUAL;
         else if (strcmp(text, "<=") == 0) return LESS_OR_EQUAL;
     }else if (cat == PUNCTUATION) {
