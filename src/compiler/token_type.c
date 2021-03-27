@@ -1,6 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
-#include "../include/lex.h"
+#include "lex.h"
 
 /*
 * General categories in string format used for printing

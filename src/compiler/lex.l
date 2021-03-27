@@ -1,52 +1,82 @@
 %{
 #include <string.h>
-#include "../include/lex.h"
-
-#define YY_DECL int alpha_yylex (struct alpha_token_t* lvalp)
+#include "lex.h"
+#include "parser.h"
 
 struct alpha_token_t *token_head = NULL;
 int token_count = 1;
 %}
 
-keyword             if|else|while|for|function|return|break|continue|and|not|or|local|true|false|nil
-operator            (\=)|(\+)|(\-)|(\*)|(\/)|(\%)|(\=\=)|(\!\=)|(\+\+)|(\-\-)|(\>)|(\<)|(\>\=)|(\<\=)
 intconst            [0-9]+
-punctuation         (\{)|(\})|(\[)|(\])|(\()|(\))|(\;)|(\,)|(\:)|(\:\:)|(\.)|(\.\.)
 ident               [a-zA-Z][a-zA-Z0-9_]*
 string              \"
-comment             "//"[^\r]*
-multiline_comment   "/*"
+comment             "//"[^\n\r]*
 
 %option yylineno
 
 %%
-{keyword} {
-    process_token(lvalp, KEYWORD, yytext, 0, 0);
-}
-{multiline_comment} {
-    process_multiline(lvalp, BLOCK_COMMENT);
-}
-{ident} {
-    process_token(lvalp, IDENT, yytext, 0, 0);
-}
-{comment} {
-    process_token(lvalp, COMMENT, yytext, 0, LINE_COMMENT);
-}
-{operator} {
-    process_token(lvalp, OPERATOR, yytext, 0, 0);
-}
+"if"            {return IF;}
+"else"          {return ELSE;}
+"while"         {return WHILE;}
+"for"           {return FOR;}
+"function"      {return FUNCTION;}
+"return"        {return RETURN;}
+"break"         {return BREAK;}
+"continue"      {return CONTINUE;}
+"and"           {return AND;}
+"not"           {return NOT;}
+"or"            {return OR;}
+"local"         {return LOCAL;}
+"true"          {return TRUE;}
+"false"         {return FALSE;}
+"nil"           {return NIL;}
+"["             {return LEFT_BRACE;}
+"]"             {return RIGHT_BRACE;}
+"{"             {return LEFT_BRACKET;}
+"}"             {return RIGHT_BRACKET;}
+"("             {return LEFT_PARENTHESIS;}
+")"             {return RIGHT_PARENTHESIS;}
+";"             {return SEMICOLON;}
+","             {return COMMA;}
+":"             {return COLON;}
+"::"            {return DOUBLE_COLON;}
+"."             {return DOT;}
+".."            {return DOUBLE_DOT;}
+"="             {return EQUALS;}
+"+"             {return PLUS;}
+"-"             {return MINUS;}
+"*"             {return MULT;}
+"/"             {return DIV;}
+"%"             {return MOD;}
+"=="            {return EQUALS_EQUALS;}
+"!="            {return NOT_EQUALS;}
+"++"            {return PLUS_PLUS;}
+"--"            {return MINUS_MINUS;}
+">"             {return GREATER_THAN;}
+"<"             {return LESS_THAN;}
+">="            {return GREATER_OR_EQUAL;}
+"<="            {return LESS_OR_EQUAL;}
+
 {intconst} {
-    process_token(lvalp, INTCONST, yytext, 0, 0);
+    yylval.numValue = atoi(yytext);
+    return NUM;
 }
+
 {intconst}\.{intconst} {
-    process_token(lvalp, REALCONST, yytext, 0, 0);
+    yylval.numValue = atoi(yytext);
+    return NUM;
 }
-{punctuation} {
-    process_token(lvalp, PUNCTUATION, yytext, 0, 0);
+
+{ident} {
+    yylval.strValue = strdup(yytext);
+    return ID;
 }
+
 {string} {
-    process_token(lvalp, STRING, process_string(lvalp), 0, 0);
+    yylval.strValue = strdup(process_string());
+    return STRING;
 }
+
 \n { }
 [ \t\r] ;   // Ignore whitespaces and carriage return
 . {
@@ -54,6 +84,10 @@ multiline_comment   "/*"
         printf("Invalid characted %s encountered, skipping...\n", yytext);
 }
 %%
+
+
+
+
 
 /*
 * Processes and adds token with given category, text, etc. into the token list
@@ -66,60 +100,60 @@ multiline_comment   "/*"
 * starting_line     comment starting line, only used with multiline or nested comments
 * token_category    specific category, only used with comments
 */
-void process_token(struct alpha_token_t* lvalp, enum category cat, char* text, unsigned long starting_line, enum token_category token_category){
-    struct alpha_token_t *token_iter = token_head, *new_token;
+// void process_token(struct alpha_token_t* lvalp, enum category cat, char* text, unsigned long starting_line, enum token_category token_category){
+//     struct alpha_token_t *token_iter = token_head, *new_token;
 
-    // Check for given empty head
-    if(!lvalp){
-        printf("Null list head given, exiting\n");
-        exit(0);
-    }
+//     // Check for given empty head
+//     if(!lvalp){
+//         printf("Null list head given, exiting\n");
+//         exit(0);
+//     }
 
-    // Check if its the first time processing
-    if(!token_head){
-        token_head = lvalp;
+//     // Check if its the first time processing
+//     if(!token_head){
+//         token_head = lvalp;
 
-        // For block comments, yylineno at the end of the processing will be the finishing line
-        if(token_category == BLOCK_COMMENT || token_category == NESTED_COMMENT){
-            token_head->line_number = starting_line;
-            token_head->comment_ending_line_no = yylineno;
-        }else
-           token_head->line_number = yylineno;
+//         // For block comments, yylineno at the end of the processing will be the finishing line
+//         if(token_category == BLOCK_COMMENT || token_category == NESTED_COMMENT){
+//             token_head->line_number = starting_line;
+//             token_head->comment_ending_line_no = yylineno;
+//         }else
+//            token_head->line_number = yylineno;
 
-        token_head->token_no = token_count++;
-        token_head->category = cat;
-        strcpy(token_head->text, text);
-        if(cat == KEYWORD || cat == OPERATOR || cat == PUNCTUATION) token_head->token_category = find_token_type(cat, text);
-        if(cat == COMMENT)
-            token_head->token_category = token_category;
-        token_head->next = NULL;
+//         token_head->token_no = token_count++;
+//         token_head->category = cat;
+//         strcpy(token_head->text, text);
+//         if(cat == KEYWORD || cat == OPERATOR || cat == PUNCTUATION) token_head->token_category = find_token_type(cat, text);
+//         if(cat == COMMENT)
+//             token_head->token_category = token_category;
+//         token_head->next = NULL;
 
-        return;
-    }
+//         return;
+//     }
 
-    // Append new token at end of list
-    while(token_iter->next != NULL)
-        token_iter = token_iter->next;
+//     // Append new token at end of list
+//     while(token_iter->next != NULL)
+//         token_iter = token_iter->next;
 
-    new_token = (struct alpha_token_t*)malloc(sizeof(struct alpha_token_t));
+//     new_token = (struct alpha_token_t*)malloc(sizeof(struct alpha_token_t));
     
-    if(token_category == BLOCK_COMMENT || token_category == NESTED_COMMENT){
-        new_token->line_number = starting_line;
-        new_token->comment_ending_line_no = yylineno;
-    }else
-        new_token->line_number = yylineno;
+//     if(token_category == BLOCK_COMMENT || token_category == NESTED_COMMENT){
+//         new_token->line_number = starting_line;
+//         new_token->comment_ending_line_no = yylineno;
+//     }else
+//         new_token->line_number = yylineno;
 
-    new_token->token_no = token_count++;
-    new_token->category = cat;
-    strcpy(new_token->text, text);
-    if(cat == KEYWORD || cat == OPERATOR || cat == PUNCTUATION) new_token->token_category = find_token_type(cat, text);
-    if(cat == COMMENT)
-            new_token->token_category = token_category;
-    new_token->next = NULL;
+//     new_token->token_no = token_count++;
+//     new_token->category = cat;
+//     strcpy(new_token->text, text);
+//     if(cat == KEYWORD || cat == OPERATOR || cat == PUNCTUATION) new_token->token_category = find_token_type(cat, text);
+//     if(cat == COMMENT)
+//             new_token->token_category = token_category;
+//     new_token->next = NULL;
 
-    token_iter->next = new_token;
-    return;
-}
+//     token_iter->next = new_token;
+//     return;
+// }
 
 /*
 * Processes a multiline comment, recursively processing more nested comments inside it until the closing comment is met
@@ -129,41 +163,41 @@ void process_token(struct alpha_token_t* lvalp, enum category cat, char* text, u
 * lvalp             list head
 * tokencat          the token specific category, used for recursion to tell apart nested comments
 */
-void process_multiline(struct alpha_token_t* lvalp, enum token_category tokencat){
-    unsigned long starting_line = yylineno;
-    int c, lci;
+// void process_multiline(struct alpha_token_t* lvalp, enum token_category tokencat){
+//     unsigned long starting_line = yylineno;
+//     int c, lci;
 
-    // Loop input
-    while(1){
-        c = input();
+//     // Loop input
+//     while(1){
+//         c = input();
 
-        // Check for EOF before closing comment, throw error
-        if(c == EOF || c == 0){
-            printf("Comment unclosed at end of file\n");
-            break;
-        }
+//         // Check for EOF before closing comment, throw error
+//         if(c == EOF || c == 0){
+//             printf("Comment unclosed at end of file\n");
+//             break;
+//         }
 
-        // Check for nested comment and recursively call for that
-        if(c == '/'){
-            if((c = input()) == '*'){
-                process_multiline(lvalp, NESTED_COMMENT);
-            }else
-                unput(c);
-        }
+//         // Check for nested comment and recursively call for that
+//         if(c == '/'){
+//             if((c = input()) == '*'){
+//                 process_multiline(lvalp, NESTED_COMMENT);
+//             }else
+//                 unput(c);
+//         }
 
-        // Closing comment
-        if(c == '*'){
-            if((c = input()) == '/')
-                break;
-            else
-                unput(c);
-        }
-    }
+//         // Closing comment
+//         if(c == '*'){
+//             if((c = input()) == '/')
+//                 break;
+//             else
+//                 unput(c);
+//         }
+//     }
 
-    // Process token after finding the end
-    process_token(lvalp, COMMENT, " ", starting_line, tokencat);
-    return;
-}
+//     // Process token after finding the end
+//     process_token(lvalp, COMMENT, " ", starting_line, tokencat);
+//     return;
+// }
 
 /*
 * Processes current input into a string until second " is met and replaces all escape characters with their hex equivalent
@@ -175,8 +209,8 @@ void process_multiline(struct alpha_token_t* lvalp, enum token_category tokencat
 * 
 * returns char*     the processed string
 */
-char* process_string(struct alpha_token_t* lvalp) {
-	char* str = (char*)malloc(256 * sizeof(char));
+char* process_string() {
+	char* str = (char*)malloc(512 * sizeof(char));
 	char c;
 	int i = 0, j = 0;
 	
