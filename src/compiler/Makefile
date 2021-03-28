@@ -1,3 +1,3 @@
 default:
-	lex lex.l
-	gcc al.c lex.yy.c token_type.c -o scanner
+	bison --yacc --defines --output=parser.c parser.y
+	gcc -o calc parser.c scanner.c struct.c

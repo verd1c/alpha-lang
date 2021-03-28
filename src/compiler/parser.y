@@ -1,13 +1,15 @@
 %{
     #include "parser.h"
-    #include <stdio.h>
-    #include <stdlib.h>
+    #include "struct.h"
     int yylex (void);
     int yyerror (char* yaccProvidedMessage);
 
     extern int yylineno;
     extern char *yytext;
     extern FILE *yyin;
+
+    int scope;
+    SymTable *symTable;
 %}
 
 %start program
@@ -21,15 +23,23 @@
 %token<numValue>    NUM
 %token<strValue>    ID STRING
 %token<strValue>    IF ELSE WHILE FOR FUNCTION RETURN BREAK CONTINUE AND NOT OR LOCAL TRUE FALSE NIL
-%token<strValue>    LEFT_BRACE RIGHT_BRACE LEFT_BRACKET RIGHT_BRACKET LEFT_PARENTHESIS RIGHT_PARENTHESIS SEMICOLON COMMAA COLON DOUBLE_COLON DOT DOUBLE_DOT
+%token<strValue>    LEFT_BRACE RIGHT_BRACE LEFT_BRACKET RIGHT_BRACKET LEFT_PARENTHESIS RIGHT_PARENTHESIS SEMICOLON COMMA COLON DOUBLE_COLON DOT DOUBLE_DOT
 %token<strValue>    EQUALS PLUS MINUS MULT DIV MOD EQUALS_EQUALS NOT_EQUALS PLUS_PLUS MINUS_MINUS GREATER_THAN LESS_THAN GREATER_OR_EQUAL LESS_OR_EQUAL
 
+%type<strValue>       lvalue
+
 %right EQUALS
-%left COMMA
-%left PLUS
-%left MULT DIV
-%nonassoc   MINUS
+%left OR
+%left AND
+%nonassoc EQUALS_EQUALS NOT_EQUALS
+%nonassoc GREATER_THAN GREATER_OR_EQUAL LESS_THAN LESS_OR_EQUAL
+%left PLUS MINUS
+%left MULT DIV MOD
+%right NOT PLUS_PLUS MINUS_MINUS
+%left DOT DOUBLE_DOT
+%left LEFT_BRACE RIGHT_BRACE
 %left LEFT_PARENTHESIS RIGHT_PARENTHESIS
+
 
 %%
 
@@ -70,7 +80,7 @@ term        :   LEFT_PARENTHESIS expression RIGHT_PARENTHESIS
                 | primary
                 ;
 
-assignexpr  :   lvalue EQUALS expression
+assignexpr  :   lvalue EQUALS expression    {insert(symTable, $1, scope, yylineno, LOCAL_VAR);}
                 ;
 
 primary     :   lvalue
@@ -80,7 +90,7 @@ primary     :   lvalue
                 | const
                 ;
 
-lvalue      :   ID
+lvalue      :   ID                  {$$ = $1;}
                 | LOCAL ID
                 | DOUBLE_COLON ID
                 | member
@@ -122,25 +132,40 @@ indexed     :   indexedelem
 
 indexedelem :   LEFT_BRACKET expression COLON expression RIGHT_BRACKET
 
-block       :   LEFT_BRACKET RIGHT_BRACKET
-                | LEFT_BRACKET blockstmt RIGHT_BRACKET
+block       :   blockstart blockend {printf("Found block at %d\n", yylineno);}
+                | blockstart blockstmt blockend
                 ;
+
+blockstart  :   LEFT_BRACKET    {
+                                    scope++; // Up scope
+                                    printf("Current scope at %d : %d\n", yylineno + 1, scope);
+                                }
+
+blockend    :   RIGHT_BRACKET   {
+                                    scope--;
+                                }
 
 blockstmt   :   statement
                 | statement blockstmt
                 |
                 ;
 
-funcdef     :   FUNCTION ID LEFT_PARENTHESIS idlist RIGHT_PARENTHESIS block
-                | FUNCTION LEFT_PARENTHESIS idlist RIGHT_PARENTHESIS block
+funcdef     :   FUNCTION ID argstart idlist argend block
+                | FUNCTION argstart idlist argend block
                 ;
+
+argstart    :   LEFT_PARENTHESIS {scope++;}
+
+argend      :   RIGHT_PARENTHESIS {scope--;}
 
 const       :   NUM | STRING | NIL | TRUE | FALSE
 
-idlist      :   ID
-                | ID COMMA idlist
+idlist      :   arg
+                | arg COMMA idlist
                 |
                 ;
+
+arg         :   ID      {printf("Arg %s is at scope %d\n", $1, scope);}
 
 ifstmt      :   IF LEFT_PARENTHESIS expression RIGHT_PARENTHESIS statement {printf("I FOUND IF\n");}
                 | IF LEFT_PARENTHESIS expression RIGHT_PARENTHESIS statement ELSE statement
@@ -173,6 +198,14 @@ int main(int argc, char **argv){
 
     }
 
+    symTable = init_sym_table();
     yyparse();
+    SymTableEntry *e;
+    e = lookup(symTable, "a", 1, LOCAL_VAR);
+    printf("%d\n", e->value.varValue->line);
+    e = lookup(symTable, "b", 4, LOCAL_VAR);
+    printf("%d\n", e->value.varValue->line);
+    e = lookup(symTable, "c", 2, LOCAL_VAR);
+    printf("%d\n", e->value.varValue->line);
     return 0;
 }
