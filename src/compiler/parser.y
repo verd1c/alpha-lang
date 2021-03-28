@@ -8,6 +8,15 @@
     extern char *yytext;
     extern FILE *yyin;
 
+    char *typeToString[] = {
+        "LOCAL_VAR",
+        "GLOBAL_VAR",
+        "ARGUMENT",
+
+        "USER_FUNC",
+        "LIB_FUNC"
+    };
+
     int scope;
     SymTable *symTable;
 %}
@@ -24,7 +33,7 @@
 %token<strValue>    ID STRING
 %token<strValue>    IF ELSE WHILE FOR FUNCTION RETURN BREAK CONTINUE AND NOT OR LOCAL TRUE FALSE NIL
 %token<strValue>    LEFT_BRACE RIGHT_BRACE LEFT_BRACKET RIGHT_BRACKET LEFT_PARENTHESIS RIGHT_PARENTHESIS SEMICOLON COMMA COLON DOUBLE_COLON DOT DOUBLE_DOT
-%token<strValue>    EQUALS PLUS MINUS MULT DIV MOD EQUALS_EQUALS NOT_EQUALS PLUS_PLUS MINUS_MINUS GREATER_THAN LESS_THAN GREATER_OR_EQUAL LESS_OR_EQUAL
+%token<strValue>    EQUALS PLUS MINUS MULT DIV MOD EQUALS_EQUALS NOT_EQUALS PLUS_PLUS MINUS_MINUS GREATER_THAN LESS_THAN GREATER_OR_EQUAL LESS_OR_EQUAL UMINUS
 
 %type<strValue>       lvalue
 
@@ -35,7 +44,7 @@
 %nonassoc GREATER_THAN GREATER_OR_EQUAL LESS_THAN LESS_OR_EQUAL
 %left PLUS MINUS
 %left MULT DIV MOD
-%right NOT PLUS_PLUS MINUS_MINUS
+%right NOT PLUS_PLUS MINUS_MINUS UMINUS
 %left DOT DOUBLE_DOT
 %left LEFT_BRACE RIGHT_BRACE
 %left LEFT_PARENTHESIS RIGHT_PARENTHESIS
@@ -71,7 +80,7 @@ expression  :   assignexpr
 op          :   PLUS | MINUS | MULT | DIV | MOD | GREATER_THAN | GREATER_OR_EQUAL | LESS_THAN | LESS_OR_EQUAL | EQUALS_EQUALS | NOT_EQUALS | AND | OR
 
 term        :   LEFT_PARENTHESIS expression RIGHT_PARENTHESIS
-                | MINUS expression
+                | UMINUS expression
                 | NOT expression
                 | PLUS_PLUS lvalue
                 | lvalue PLUS_PLUS
@@ -80,7 +89,12 @@ term        :   LEFT_PARENTHESIS expression RIGHT_PARENTHESIS
                 | primary
                 ;
 
-assignexpr  :   lvalue EQUALS expression    {insert(symTable, $1, scope, yylineno, LOCAL_VAR);}
+assignexpr  :   lvalue EQUALS expression    {
+                                                if(scope == 0)
+                                                    insert(symTable, $1, scope, yylineno, GLOBAL_VAR);
+                                                else
+                                                    insert(symTable, $1, scope, yylineno, LOCAL_VAR);
+                                            }
                 ;
 
 primary     :   lvalue
@@ -90,7 +104,7 @@ primary     :   lvalue
                 | const
                 ;
 
-lvalue      :   ID                  {$$ = $1;}
+lvalue      :   ID                          {$$ = $1;}
                 | LOCAL ID
                 | DOUBLE_COLON ID
                 | member
@@ -115,8 +129,8 @@ normcall    :   LEFT_PARENTHESIS elist RIGHT_PARENTHESIS
 
 methodcall  :   DOUBLE_DOT ID LEFT_PARENTHESIS elist RIGHT_PARENTHESIS
 
-elist       :   expression {printf("Found end of elist\n");}
-                | expression COMMA elist {printf("FOUND ELIST\n");}
+elist       :   expression 
+                | expression COMMA elist 
                 |
                 ;
         
@@ -132,13 +146,12 @@ indexed     :   indexedelem
 
 indexedelem :   LEFT_BRACKET expression COLON expression RIGHT_BRACKET
 
-block       :   blockstart blockend {printf("Found block at %d\n", yylineno);}
+block       :   blockstart blockend 
                 | blockstart blockstmt blockend
                 ;
 
 blockstart  :   LEFT_BRACKET    {
                                     scope++; // Up scope
-                                    printf("Current scope at %d : %d\n", yylineno + 1, scope);
                                 }
 
 blockend    :   RIGHT_BRACKET   {
@@ -150,9 +163,24 @@ blockstmt   :   statement
                 |
                 ;
 
-funcdef     :   FUNCTION ID argstart idlist argend block
-                | FUNCTION argstart idlist argend block
+funcdef     :   funcstart argstart idlist argend block 
+                | funcstart argstart idlist argend block
                 ;
+
+funcstart   :   FUNCTION ID {
+                                SymTableEntry *e;
+
+                                // Search for libfunc
+                                if((e = lookup(symTable, $2, 0, FUN)) == NULL){
+                                    insert(symTable, $2, scope, yylineno, USER_FUNC);
+                                }else{
+                                    if(e->type == USER_FUNC)
+                                        printf("Error:%d: Duplicate user function %s\n", yylineno, $2);
+                                    else
+                                        printf("Error:%d: Duplicate lib function %s\n", yylineno, $2);
+                                }
+                            }
+                | FUNCTION
 
 argstart    :   LEFT_PARENTHESIS {scope++;}
 
@@ -165,9 +193,9 @@ idlist      :   arg
                 |
                 ;
 
-arg         :   ID      {printf("Arg %s is at scope %d\n", $1, scope);}
+arg         :   ID
 
-ifstmt      :   IF LEFT_PARENTHESIS expression RIGHT_PARENTHESIS statement {printf("I FOUND IF\n");}
+ifstmt      :   IF LEFT_PARENTHESIS expression RIGHT_PARENTHESIS statement
                 | IF LEFT_PARENTHESIS expression RIGHT_PARENTHESIS statement ELSE statement
                 ;
 
@@ -187,6 +215,31 @@ int yyerror(char *yaccProvidedMessage){
     printf("ERORR: %s\n", yaccProvidedMessage);
 }
 
+void printSymTable(SymTable *symTable){
+    SymTableEntry *e;
+    int i;
+
+    printf("----------------------------------------------------------------\n");
+    printf("Symbol Table  [Name                ] [Line] [Scope] [Type      ]\n");
+    printf("----------------------------------------------------------------\n");
+    for(i = 0; i < SIZE; i++){
+        e = symTable->table[i];
+
+        if(e == NULL) continue;
+
+        while(e != NULL){
+            if(e->type == LOCAL_VAR || e->type == GLOBAL_VAR || e->type == ARGUMENT_VAR){
+                printf("SymTableEntry [%-20s] [%-4d] [%-5d] [%-10s]\n", e->value.varValue->name, e->value.varValue->line, e->value.varValue->scope, typeToString[e->type]);
+            }else{
+                printf("SymTableEntry [%-20s] [%-4d] [%-5d] [%-10s]\n", e->value.funcValue->name, e->value.funcValue->line, e->value.funcValue->scope, typeToString[e->type]);
+            }
+
+            e = e->nextEntry;
+        }
+    }
+    printf("----------------------------------------------------------------\n");
+}
+
 int main(int argc, char **argv){
     if(argc > 1){
         if(!(yyin = fopen(argv[1], "r"))){
@@ -200,12 +253,7 @@ int main(int argc, char **argv){
 
     symTable = init_sym_table();
     yyparse();
-    SymTableEntry *e;
-    e = lookup(symTable, "a", 1, LOCAL_VAR);
-    printf("%d\n", e->value.varValue->line);
-    e = lookup(symTable, "b", 4, LOCAL_VAR);
-    printf("%d\n", e->value.varValue->line);
-    e = lookup(symTable, "c", 2, LOCAL_VAR);
-    printf("%d\n", e->value.varValue->line);
+
+    //printSymTable(symTable);
     return 0;
 }

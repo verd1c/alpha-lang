@@ -9,6 +9,10 @@
 #define SIZE 512
 #define HASH_MULTIPLIER 65599
 
+enum Type{
+    VAR,
+    FUN
+};
 
 enum EntryType{
     LOCAL_VAR,
@@ -51,5 +55,5 @@ typedef struct SymTable_t{
 } SymTable;
 
 SymTable* init_sym_table();
-SymTableEntry* lookup(SymTable *t, char *text, int scope, enum EntryType type);
+SymTableEntry* lookup(SymTable *t, char *text, int scope, enum Type type);
 int insert(SymTable *t, char *name, int scope, int line, enum EntryType type);

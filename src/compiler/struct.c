@@ -2,13 +2,32 @@
 
 static int hash(char *text){
     size_t i;
-    int sum = 0;
+    unsigned int sum = 0;
 
     for(i = 0; i < strlen(text); i++){
         sum = sum * HASH_MULTIPLIER + text[i];
     }
 
     return sum % SIZE;
+}
+
+/*
+* Initialize library functions
+*/
+void init_lib_funcs(SymTable *symTable){
+    insert(symTable, "print", 0, 0, LIB_FUNC);
+    insert(symTable, "input", 0, 0, LIB_FUNC);
+    insert(symTable, "objectmemberkeys", 0, 0, LIB_FUNC);
+    insert(symTable, "objecttotalmembers", 0, 0, LIB_FUNC);
+    insert(symTable, "objectcopy", 0, 0, LIB_FUNC);
+    insert(symTable, "totalarguments", 0, 0, LIB_FUNC);
+    insert(symTable, "argument", 0, 0, LIB_FUNC);
+    insert(symTable, "typeof", 0, 0, LIB_FUNC);
+    insert(symTable, "strtonum", 0, 0, LIB_FUNC);
+    insert(symTable, "sqrt", 0, 0, LIB_FUNC);
+    insert(symTable, "cos", 0, 0, LIB_FUNC);
+    insert(symTable, "sin", 0, 0, LIB_FUNC);
+    return;
 }
 
 SymTable* init_sym_table(){
@@ -19,6 +38,8 @@ SymTable* init_sym_table(){
     for(i = 0; i < SIZE; i++){
         symTable->table[i] = NULL;
     }
+    
+    init_lib_funcs(symTable);
 
     symTable->length = 0;
 
@@ -55,6 +76,7 @@ int insert(SymTable *t, char *name, int scope, int line, enum EntryType type){
         t->table[h]->nextEntry = NULL;
     }else{
         iter = t->table[h];
+
         while(iter->nextEntry != NULL){
             iter = iter->nextEntry;
         }
@@ -82,7 +104,7 @@ int insert(SymTable *t, char *name, int scope, int line, enum EntryType type){
 }
 
 
-SymTableEntry* lookup(SymTable *t, char *name, int scope, enum EntryType type){
+SymTableEntry* lookup(SymTable *t, char *name, int scope, enum Type type){
     SymTableEntry *iter;
     int h;
 
@@ -92,7 +114,7 @@ SymTableEntry* lookup(SymTable *t, char *name, int scope, enum EntryType type){
 
     while(iter != NULL){
 
-        if(type == LOCAL_VAR || type == GLOBAL_VAR || type == ARGUMENT_VAR){
+        if(type == VAR){
             if(strcmp(iter->value.varValue->name, name) == 0 && iter->value.varValue->scope == scope)
                 return iter;
         }else{
