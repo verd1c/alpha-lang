@@ -37,21 +37,26 @@ typedef struct Function {
 } Function;
 
 typedef struct SymTableEntry {
+    int active;                         // wether entry is active or not
 
-    int active;
-
-    enum EntryType type;
+    enum EntryType type;                // entry type
     union{
         Variable *varValue;
         Function *funcValue;
     } value;
 
-    struct SymTableEntry *nextEntry;
+    struct SymTableEntry *nextEntry;    // next entry
+
+    struct SymTableEntry *nextInScope;  // next in linked list by scope
+    struct SymTableEntry *nextScope;    // next scope list
 } SymTableEntry;
 
 typedef struct SymTable_t{
-    unsigned length;
-    SymTableEntry *table[SIZE];
+    unsigned length;                    // sym table length
+    
+    SymTableEntry *table[SIZE];         // hash table
+    SymTableEntry *scopeChain;          // linked row lists by scope
+
 } SymTable;
 
 SymTable* init_sym_table();

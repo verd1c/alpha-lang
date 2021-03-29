@@ -228,7 +228,7 @@ char* process_string() {
 
         // Escape character starting
 		if (c == '\\') {
-
+			
             // Switch next character
 			c = input();
 			switch (c) {

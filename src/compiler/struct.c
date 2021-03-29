@@ -38,12 +38,111 @@ SymTable* init_sym_table(){
     for(i = 0; i < SIZE; i++){
         symTable->table[i] = NULL;
     }
-    
-    init_lib_funcs(symTable);
 
     symTable->length = 0;
+    symTable->scopeChain = NULL;
+
+    init_lib_funcs(symTable);
 
     return symTable;
+}
+
+void setNextScopes(SymTable *t, int scope, SymTableEntry *e){
+    SymTableEntry *iter;
+    int iterScope;
+
+    //asm __volatile__ (".byte 0xc3");
+
+    iter = t->scopeChain;
+
+    // Get iter scope
+    if(iter->type == LOCAL_VAR || iter->type == GLOBAL_VAR || iter->type == ARGUMENT_VAR)
+        iterScope = iter->value.varValue->scope;
+    else
+        iterScope = iter->value.funcValue->scope;
+
+    while(iter != NULL && iterScope < scope){
+
+        iter = iter->nextScope;
+        
+        if(iter != NULL){
+            // Get iter scope
+            if(iter->type == LOCAL_VAR || iter->type == GLOBAL_VAR || iter->type == ARGUMENT_VAR)
+                iterScope = iter->value.varValue->scope;
+            else
+                iterScope = iter->value.funcValue->scope;
+        }
+    }
+
+    if(iter == NULL){
+        printf("Wtf?\n");
+        exit(0);
+    }
+
+    // Loop all and set nextScope
+    iter->nextScope = e;
+    while(iter->nextInScope != NULL){
+        iter->nextScope = e;
+        iter = iter->nextInScope;
+    }
+
+    return;
+}
+
+void addToScopeChain(SymTable *t, SymTableEntry *e){
+    SymTableEntry *iter, *prev;
+    int entryScope, iterScope;
+
+    if(t->scopeChain == NULL){
+        t->scopeChain = e;
+        //asm __volatile__ (".byte 0xc3");
+        return;
+    }
+
+    // Get entry scope
+    if(e->type == LOCAL_VAR || e->type == GLOBAL_VAR || e->type == ARGUMENT_VAR)
+        entryScope = e->value.varValue->scope;
+    else
+        entryScope = e->value.funcValue->scope;
+    
+
+    iter = t->scopeChain;
+
+    // Get iter scope
+    if(iter->type == LOCAL_VAR || iter->type == GLOBAL_VAR || iter->type == ARGUMENT_VAR)
+        iterScope = iter->value.varValue->scope;
+    else
+        iterScope = iter->value.funcValue->scope;
+
+    prev = NULL;
+    while(iter != NULL && iterScope < entryScope){
+        prev = iter;
+        iter = iter->nextScope;
+        // Get iter scope
+        if(iter != NULL){
+            if(iter->type == LOCAL_VAR || iter->type == GLOBAL_VAR || iter->type == ARGUMENT_VAR)
+                iterScope = iter->value.varValue->scope;
+            else
+                iterScope = iter->value.funcValue->scope;
+        }
+            
+    }
+
+    if(iter == NULL){
+        // Create scope
+        setNextScopes(t, iterScope, e);
+        return;
+    }
+
+
+    while(iter->nextInScope != NULL){
+        iter = iter->nextInScope;
+    }
+
+    iter->nextInScope = e;
+    e->nextScope = iter->nextScope;
+    return;
+
 }
 
 /*
@@ -74,6 +173,7 @@ int insert(SymTable *t, char *name, int scope, int line, enum EntryType type){
         t->table[h]->type = type;
 
         t->table[h]->nextEntry = NULL;
+        addToScopeChain(t, t->table[h]);
     }else{
         iter = t->table[h];
 
@@ -98,6 +198,7 @@ int insert(SymTable *t, char *name, int scope, int line, enum EntryType type){
         iter->nextEntry->type = type;
 
         iter->nextEntry->nextEntry = NULL;
+        addToScopeChain(t, iter->nextEntry);
     }
 
     return 1;
