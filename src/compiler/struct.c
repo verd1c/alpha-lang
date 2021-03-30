@@ -173,6 +173,7 @@ int insert(SymTable *t, char *name, int scope, int line, enum EntryType type){
         t->table[h]->type = type;
 
         t->table[h]->nextEntry = NULL;
+        t->table[h]->isActive = 1;
         addToScopeChain(t, t->table[h]);
     }else{
         iter = t->table[h];
@@ -198,6 +199,7 @@ int insert(SymTable *t, char *name, int scope, int line, enum EntryType type){
         iter->nextEntry->type = type;
 
         iter->nextEntry->nextEntry = NULL;
+        iter->nextEntry->isActive = 1;
         addToScopeChain(t, iter->nextEntry);
     }
 
@@ -205,7 +207,7 @@ int insert(SymTable *t, char *name, int scope, int line, enum EntryType type){
 }
 
 
-SymTableEntry* lookup(SymTable *t, char *name, int scope, enum Type type){
+SymTableEntry* lookup(SymTable *t, char *name, int scope, enum EntryType type){
     SymTableEntry *iter;
     int h;
 
@@ -215,7 +217,31 @@ SymTableEntry* lookup(SymTable *t, char *name, int scope, enum Type type){
 
     while(iter != NULL){
 
-        if(type == VAR){
+        if(iter->type == LOCAL_VAR || iter->type == GLOBAL_VAR || iter->type == ARGUMENT_VAR){
+            if(strcmp(iter->value.varValue->name, name) == 0 && iter->value.varValue->scope == scope && iter->type == type)
+                return iter;
+        }else{
+            if(strcmp(iter->value.funcValue->name, name) == 0 && iter->value.funcValue->scope == scope && iter->type == type)
+                return iter;
+        }
+
+        iter = iter->nextEntry;
+    }
+
+    return NULL;
+}
+
+SymTableEntry* lookup_no_type(SymTable *t, char *name, int scope){
+    SymTableEntry *iter;
+    int h;
+
+    h = hash(name);
+
+    iter = t->table[h];
+
+    while(iter != NULL){
+
+        if(iter->type == LOCAL_VAR || iter->type == GLOBAL_VAR || iter->type == ARGUMENT_VAR){
             if(strcmp(iter->value.varValue->name, name) == 0 && iter->value.varValue->scope == scope)
                 return iter;
         }else{
@@ -227,4 +253,44 @@ SymTableEntry* lookup(SymTable *t, char *name, int scope, enum Type type){
     }
 
     return NULL;
+}
+
+void hide(SymTable *t, int scope){
+    SymTableEntry *iter;
+    int iterScope;
+
+    iter = t->scopeChain;
+
+    // Get iter scope
+    if(iter->type == LOCAL_VAR || iter->type == GLOBAL_VAR || iter->type == ARGUMENT_VAR)
+        iterScope = iter->value.varValue->scope;
+    else
+        iterScope = iter->value.funcValue->scope;
+
+    while(iter != NULL && iterScope != scope){
+        iter = iter->nextScope;
+        // Get iter scope
+        if(iter != NULL){
+            if(iter->type == LOCAL_VAR || iter->type == GLOBAL_VAR || iter->type == ARGUMENT_VAR)
+                iterScope = iter->value.varValue->scope;
+            else
+                iterScope = iter->value.funcValue->scope;
+        }
+    }
+
+
+    while(iter != NULL){
+        if(iter->isActive != 0)
+            iter->isActive = 0;
+        
+        iter = iter->nextInScope;
+    }
+
+    return;
+}
+
+void scope_down(SymTable *t){
+    hide(t, scope);
+    scope--;
+    return;    
 }

@@ -35,7 +35,7 @@
 %token<strValue>    LEFT_BRACE RIGHT_BRACE LEFT_BRACKET RIGHT_BRACKET LEFT_PARENTHESIS RIGHT_PARENTHESIS SEMICOLON COMMA COLON DOUBLE_COLON DOT DOUBLE_DOT
 %token<strValue>    EQUALS PLUS MINUS MULT DIV MOD EQUALS_EQUALS NOT_EQUALS PLUS_PLUS MINUS_MINUS GREATER_THAN LESS_THAN GREATER_OR_EQUAL LESS_OR_EQUAL UMINUS
 
-%type<strValue>     lvalue
+%type<strValue>     lvalue member call
 
 %right EQUALS
 %left OR
@@ -53,8 +53,6 @@
 %%
 
 program     :   statements
-                |
-                ;
 
 statements  :   statements statement
                 |
@@ -73,11 +71,21 @@ statement   :   expression SEMICOLON
                 ;
 
 expression  :   assignexpr
-                | expression op expression
+                | expression PLUS expression
+                | expression MINUS expression
+                | expression MULT expression
+                | expression DIV expression
+                | expression MOD expression
+                | expression GREATER_THAN expression
+                | expression GREATER_OR_EQUAL expression
+                | expression LESS_THAN expression
+                | expression LESS_OR_EQUAL expression
+                | expression EQUALS_EQUALS expression
+                | expression NOT_EQUALS expression
+                | expression AND expression
+                | expression OR expression
                 | term
                 ;
-
-op          :   PLUS | MINUS | MULT | DIV | MOD | GREATER_THAN | GREATER_OR_EQUAL | LESS_THAN | LESS_OR_EQUAL | EQUALS_EQUALS | NOT_EQUALS | AND | OR
 
 term        :   LEFT_PARENTHESIS expression RIGHT_PARENTHESIS
                 | UMINUS expression
@@ -134,17 +142,16 @@ elist       :   expression
                 |
                 ;
         
-objectdef   :   LEFT_BRACE RIGHT_BRACE
-                | LEFT_BRACE elist RIGHT_BRACE
+objectdef   :    LEFT_BRACE elist RIGHT_BRACE
                 | LEFT_BRACE indexed RIGHT_BRACE
                 ;
 
 indexed     :   indexedelem
                 | indexedelem COMMA indexed
-                |
                 ;
 
 indexedelem :   LEFT_BRACKET expression COLON expression RIGHT_BRACKET
+                ;
 
 block       :   blockstart blockend 
                 | blockstart blockstmt blockend
@@ -155,16 +162,14 @@ blockstart  :   LEFT_BRACKET    {
                                 }
 
 blockend    :   RIGHT_BRACKET   {
-                                    scope--;
+                                    scope_down(symTable);
                                 }
 
 blockstmt   :   statement
                 | statement blockstmt
-                |
                 ;
 
 funcdef     :   funcstart argstart idlist argend block 
-                | funcstart argstart idlist argend block
                 ;
 
 funcstart   :   FUNCTION ID {
@@ -184,7 +189,8 @@ funcstart   :   FUNCTION ID {
 
 argstart    :   LEFT_PARENTHESIS {scope++;}
 
-argend      :   RIGHT_PARENTHESIS {scope--;}
+argend      :   RIGHT_PARENTHESIS 
+                    {scope_down(symTable);}
 
 const       :   NUM | STRING | NIL | TRUE | FALSE
 

@@ -9,6 +9,8 @@
 #define SIZE 512
 #define HASH_MULTIPLIER 65599
 
+extern int scope;
+
 enum Type{
     VAR,
     FUN
@@ -37,7 +39,7 @@ typedef struct Function {
 } Function;
 
 typedef struct SymTableEntry {
-    int active;                         // wether entry is active or not
+    int isActive;                       // wether entry is active or not
 
     enum EntryType type;                // entry type
     union{
@@ -60,5 +62,7 @@ typedef struct SymTable_t{
 } SymTable;
 
 SymTable* init_sym_table();
-SymTableEntry* lookup(SymTable *t, char *text, int scope, enum Type type);
+SymTableEntry* lookup(SymTable *t, char *text, int scope, enum EntryType type);
+SymTableEntry* lookup_no_type(SymTable *t, char *name, int scope);
 int insert(SymTable *t, char *name, int scope, int line, enum EntryType type);
+void scope_down(SymTable *t);
