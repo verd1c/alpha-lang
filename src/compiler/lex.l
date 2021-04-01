@@ -77,6 +77,10 @@ comment             "//"[^\n\r]*
     return STRING;
 }
 
+{comment} {
+	
+}
+
 \n { }
 [ \t\r] ;   // Ignore whitespaces and carriage return
 . {

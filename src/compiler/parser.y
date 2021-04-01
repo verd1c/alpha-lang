@@ -1,6 +1,6 @@
 %{
     #include "parser.h"
-    #include "struct.h"
+    #include "symbol_table.h"
     int yylex (void);
     int yyerror (char* yaccProvidedMessage);
 
@@ -18,6 +18,8 @@
     };
 
     int scope;
+    char *_func_name;
+    int _funcCount = 0;
     SymTable *symTable;
 %}
 
@@ -27,6 +29,8 @@
     char*   strValue;
     int     intValue;
     double  numValue;
+
+    struct SymTableEntry* exprValue;
 }
 
 %token<numValue>    NUM
@@ -35,7 +39,8 @@
 %token<strValue>    LEFT_BRACE RIGHT_BRACE LEFT_BRACKET RIGHT_BRACKET LEFT_PARENTHESIS RIGHT_PARENTHESIS SEMICOLON COMMA COLON DOUBLE_COLON DOT DOUBLE_DOT
 %token<strValue>    EQUALS PLUS MINUS MULT DIV MOD EQUALS_EQUALS NOT_EQUALS PLUS_PLUS MINUS_MINUS GREATER_THAN LESS_THAN GREATER_OR_EQUAL LESS_OR_EQUAL UMINUS
 
-%type<strValue>     lvalue member call
+%type<strValue>     member call arg funcstart idlist
+%type<exprValue>    lvalue
 
 %right EQUALS
 %left OR
@@ -97,13 +102,7 @@ term        :   LEFT_PARENTHESIS expression RIGHT_PARENTHESIS
                 | primary
                 ;
 
-assignexpr  :   lvalue EQUALS expression    {
-                                                if(scope == 0)
-                                                    insert(symTable, $1, scope, yylineno, GLOBAL_VAR);
-                                                else
-                                                    insert(symTable, $1, scope, yylineno, LOCAL_VAR);
-                                            }
-                ;
+assignexpr  :   lvalue EQUALS expression
 
 primary     :   lvalue
                 | call
@@ -112,20 +111,46 @@ primary     :   lvalue
                 | const
                 ;
 
-lvalue      :   ID                          {$$ = $1;}
-                | LOCAL ID
-                | DOUBLE_COLON ID
-                | member
+lvalue      :   ID                          {
+                                                SymTableEntry *e;
+
+                                                if((e = lookup_variable(symTable, $1, scope)) == NULL){
+                                                    if(scope == 0)
+                                                        insert(symTable, $1, scope, yylineno, GLOBAL_VAR);
+                                                    else
+                                                        insert(symTable, $1, scope, yylineno, LOCAL_VAR);
+                                                }else{
+                                                    if(e->type == LOCAL_VAR || e->type == GLOBAL_VAR || e->type == ARGUMENT_VAR){
+                                                        if(_funcCount == 0 && e->isActive){
+                                                            $$ = e;
+                                                        }else{
+                                                            if(e->type == GLOBAL_VAR || (e->value.varValue->scope == scope && e->isActive)){
+                                                                $$ = e;
+                                                            }else{
+                                                                if(scope == 0){
+                                                                    insert(symTable, $1, scope, yylineno, GLOBAL_VAR);
+                                                                }else
+                                                                    insert(symTable, $1, scope, yylineno, LOCAL_VAR);
+                                                            }
+                                                        }
+                                                    }else{
+                                                        printf("input:%d: error: function %s, functions cannot be l-values\n", yylineno, $1);
+                                                    }
+                                                }
+                                            }
+                | LOCAL ID                  {}
+                | DOUBLE_COLON ID           {}
+                | member                    {}
                 ;
 
-member      :   lvalue DOT ID
-                | lvalue LEFT_BRACE expression RIGHT_BRACE
+member      :   lvalue DOT ID   {}
+                | lvalue LEFT_BRACE expression RIGHT_BRACE  {}
                 | call DOT ID
                 | call LEFT_BRACE expression RIGHT_BRACE
                 ;
 
 call        :   call LEFT_PARENTHESIS elist RIGHT_PARENTHESIS
-                | lvalue callsuffix
+                | lvalue callsuffix {}
                 | LEFT_PARENTHESIS funcdef RIGHT_PARENTHESIS LEFT_PARENTHESIS elist RIGHT_PARENTHESIS
                 ;
             
@@ -169,37 +194,48 @@ blockstmt   :   statement
                 | statement blockstmt
                 ;
 
-funcdef     :   funcstart argstart idlist argend block 
+funcdef     :   funcstart LEFT_PARENTHESIS {scope++;} idlist RIGHT_PARENTHESIS {scope--; _funcCount++;} block {_funcCount--;}
                 ;
 
 funcstart   :   FUNCTION ID {
                                 SymTableEntry *e;
+                                int entryScope;
+
+                                $$ = $2;
+                                _func_name = $2;
 
                                 // Search for libfunc
-                                if((e = lookup(symTable, $2, 0, FUN)) == NULL){
+                                if((e = function_lookup(symTable, $2, scope)) == NULL){
                                     insert(symTable, $2, scope, yylineno, USER_FUNC);
                                 }else{
                                     if(e->type == USER_FUNC)
-                                        printf("Error:%d: Duplicate user function %s\n", yylineno, $2);
+                                        printf("input:%d: error: duplicate user function %s, first defined in line %d\n", yylineno, $2, e->value.funcValue->line);
+                                    else if(e->type == LIB_FUNC)
+                                        printf("input:%d: error: duplicate library function %s, first defined in line %d\n", yylineno, $2, e->value.funcValue->line);
                                     else
-                                        printf("Error:%d: Duplicate lib function %s\n", yylineno, $2);
+                                        printf("input:%d: error: function %s has conflicting type with variable %s first defined in line %d\n", yylineno, $2, e->value.varValue->name, e->value.varValue->line);
                                 }
                             }
                 | FUNCTION
-
-argstart    :   LEFT_PARENTHESIS {scope++;}
-
-argend      :   RIGHT_PARENTHESIS 
-                    {scope_down(symTable);}
 
 const       :   NUM | STRING | NIL | TRUE | FALSE
 
 idlist      :   arg
                 | arg COMMA idlist
-                |
+                | {}
                 ;
 
-arg         :   ID
+arg         :   ID   {
+                        SymTableEntry *e, *a;
+
+                        if((e = lookup(symTable, _func_name, scope - 1, USER_FUNC)) != NULL){
+                            if((a = lookup_active(symTable, $1, scope)) == NULL){
+                                insert(symTable, $1, scope, yylineno, ARGUMENT_VAR);
+                            }else{
+                                printf("input:%d: error: duplicate argument %s in function %s\n", yylineno, $1, e->value.funcValue->name);
+                            }
+                        }                          
+                    }
 
 ifstmt      :   IF LEFT_PARENTHESIS expression RIGHT_PARENTHESIS statement
                 | IF LEFT_PARENTHESIS expression RIGHT_PARENTHESIS statement ELSE statement
@@ -292,7 +328,7 @@ int main(int argc, char **argv){
     symTable = init_sym_table();
     yyparse();
 
-    printSymTable(symTable);
+    //printSymTable(symTable);
     printByScope(symTable);
 
     //asm __volatile__ (".byte 0xc3");

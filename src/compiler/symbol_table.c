@@ -1,4 +1,4 @@
-#include "struct.h"
+#include "symbol_table.h"
 
 static int hash(char *text){
     size_t i;
@@ -91,7 +91,7 @@ void setNextScopes(SymTable *t, int scope, SymTableEntry *e){
 
 void addToScopeChain(SymTable *t, SymTableEntry *e){
     SymTableEntry *iter, *prev;
-    int entryScope, iterScope;
+    int entryScope, iterScope, prevScope = -1;
 
     if(t->scopeChain == NULL){
         t->scopeChain = e;
@@ -126,6 +126,21 @@ void addToScopeChain(SymTable *t, SymTableEntry *e){
                 iterScope = iter->value.funcValue->scope;
         }
             
+    }
+
+    // Get previous scope
+    if(prev != NULL){
+        if(prev->type == LOCAL_VAR || prev->type == GLOBAL_VAR || prev->type == ARGUMENT_VAR)
+            prevScope = prev->value.varValue->scope;
+        else
+            prevScope = prev->value.funcValue->scope;
+    }
+    if(iterScope > entryScope){
+        if(prevScope != -1){
+            setNextScopes(t, prevScope, e);
+            e->nextScope = iter;
+            return;
+        }
     }
 
     if(iter == NULL){
@@ -255,6 +270,42 @@ SymTableEntry* lookup_no_type(SymTable *t, char *name, int scope){
     return NULL;
 }
 
+SymTableEntry* lookup_active(SymTable *t, char *name, int scope){
+    SymTableEntry *iter;
+    int h;
+
+    h = hash(name);
+
+    iter = t->table[h];
+
+    while(iter != NULL){
+
+        if(iter->type == LOCAL_VAR || iter->type == GLOBAL_VAR || iter->type == ARGUMENT_VAR){
+            if(strcmp(iter->value.varValue->name, name) == 0 && iter->value.varValue->scope == scope && iter->isActive)
+                return iter;
+        }else{
+            if(strcmp(iter->value.funcValue->name, name) == 0 && iter->value.funcValue->scope == scope && iter->isActive)
+                return iter;
+        }
+
+        iter = iter->nextEntry;
+    }
+
+    return NULL;
+}
+
+SymTableEntry* lookup_variable(SymTable *t, char *name, int scope){
+    SymTableEntry *iter, *scopeIter;
+    int h, curScope;
+
+    for(curScope = scope; curScope >= 0; curScope--){
+        if((iter = lookup_no_type(t, name, curScope)) != NULL)
+            return iter;
+    }
+
+    return NULL;
+}
+
 void hide(SymTable *t, int scope){
     SymTableEntry *iter;
     int iterScope;
@@ -293,4 +344,30 @@ void scope_down(SymTable *t){
     hide(t, scope);
     scope--;
     return;    
+}
+
+SymTableEntry *function_lookup(SymTable *t, char *name, int scope){
+    SymTableEntry *iter;
+    int h;
+
+    h = hash(name);
+    iter = t->table[h];
+    while(iter != NULL){
+        if(iter->type == LOCAL_VAR || iter->type == GLOBAL_VAR || iter->type == ARGUMENT_VAR){
+            if(strcmp(iter->value.varValue->name, name) == 0 && iter->value.varValue->scope == scope)
+                return iter;
+        }else{
+            if(strcmp(iter->value.funcValue->name, name) == 0 && (iter->value.varValue->scope == scope || iter->type == LIB_FUNC))
+                return iter;
+        }
+
+        iter = iter->nextEntry;
+    }
+
+    return NULL;
+}
+
+void alpha_error(char *error, int line){
+    fprintf(stderr, "input:%d: error: %s\n", line, error);
+    return;
 }
