@@ -64,10 +64,8 @@ typedef struct SymTable_t{
 SymTable* init_sym_table();
 SymTableEntry* lookup(SymTable *t, char *text, int scope, enum EntryType type);
 SymTableEntry* lookup_no_type(SymTable *t, char *name, int scope);
-int insert(SymTable *t, char *name, int scope, int line, enum EntryType type);
+SymTableEntry* insert(SymTable *t, char *name, int scope, int line, enum EntryType type);
 void scope_down(SymTable *t);
 SymTableEntry *function_lookup(SymTable *t, char *name, int scope);
 SymTableEntry* lookup_variable(SymTable *t, char *name, int scope);
 SymTableEntry* lookup_active(SymTable *t, char *name, int scope);
-
-void alpha_error(char *error, int line);

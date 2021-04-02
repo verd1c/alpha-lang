@@ -11,6 +11,7 @@ intconst            [0-9]+
 ident               [a-zA-Z][a-zA-Z0-9_]*
 string              \"
 comment             "//"[^\n\r]*
+multiline_comment	"/""*"
 
 %option yylineno
 
@@ -79,6 +80,10 @@ comment             "//"[^\n\r]*
 
 {comment} {
 	
+}
+
+{multiline_comment} {
+	process_multiline();
 }
 
 \n { }
@@ -167,41 +172,38 @@ comment             "//"[^\n\r]*
 * lvalp             list head
 * tokencat          the token specific category, used for recursion to tell apart nested comments
 */
-// void process_multiline(struct alpha_token_t* lvalp, enum token_category tokencat){
-//     unsigned long starting_line = yylineno;
-//     int c, lci;
+void process_multiline(){
+    unsigned long starting_line = yylineno;
+    int c, lci;
 
-//     // Loop input
-//     while(1){
-//         c = input();
+    // Loop input
+    while(1){
+        c = input();
 
-//         // Check for EOF before closing comment, throw error
-//         if(c == EOF || c == 0){
-//             printf("Comment unclosed at end of file\n");
-//             break;
-//         }
+        // Check for EOF before closing comment, throw error
+        if(c == EOF || c == 0){
+            printf("Comment unclosed at end of file\n");
+            break;
+        }
 
-//         // Check for nested comment and recursively call for that
-//         if(c == '/'){
-//             if((c = input()) == '*'){
-//                 process_multiline(lvalp, NESTED_COMMENT);
-//             }else
-//                 unput(c);
-//         }
+        // Check for nested comment and recursively call for that
+        if(c == '/'){
+            if((c = input()) == '*'){
+                process_multiline();
+            }else
+                unput(c);
+        }
 
-//         // Closing comment
-//         if(c == '*'){
-//             if((c = input()) == '/')
-//                 break;
-//             else
-//                 unput(c);
-//         }
-//     }
-
-//     // Process token after finding the end
-//     process_token(lvalp, COMMENT, " ", starting_line, tokencat);
-//     return;
-// }
+        // Closing comment
+        if(c == '*'){
+            if((c = input()) == '/')
+                break;
+            else
+                unput(c);
+        }
+    }
+    return;
+}
 
 /*
 * Processes current input into a string until second " is met and replaces all escape characters with their hex equivalent

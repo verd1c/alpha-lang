@@ -164,7 +164,7 @@ void addToScopeChain(SymTable *t, SymTableEntry *e){
 * 0 fail 1 successs
 *
 */
-int insert(SymTable *t, char *name, int scope, int line, enum EntryType type){
+SymTableEntry *insert(SymTable *t, char *name, int scope, int line, enum EntryType type){
     SymTableEntry *iter;
     int h;
 
@@ -190,6 +190,7 @@ int insert(SymTable *t, char *name, int scope, int line, enum EntryType type){
         t->table[h]->nextEntry = NULL;
         t->table[h]->isActive = 1;
         addToScopeChain(t, t->table[h]);
+        return t->table[h];
     }else{
         iter = t->table[h];
 
@@ -216,9 +217,10 @@ int insert(SymTable *t, char *name, int scope, int line, enum EntryType type){
         iter->nextEntry->nextEntry = NULL;
         iter->nextEntry->isActive = 1;
         addToScopeChain(t, iter->nextEntry);
+        return iter->nextEntry;
     }
 
-    return 1;
+    return NULL;
 }
 
 

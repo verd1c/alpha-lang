@@ -5,3 +5,4 @@
 */
 
 char* process_string();
+void process_multiline();
