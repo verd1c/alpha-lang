@@ -173,8 +173,7 @@ multiline_comment	"/""*"
 * tokencat          the token specific category, used for recursion to tell apart nested comments
 */
 void process_multiline(){
-    unsigned long starting_line = yylineno;
-    int c, lci;
+    int c;
 
     // Loop input
     while(1){

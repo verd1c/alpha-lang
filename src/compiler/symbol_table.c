@@ -297,11 +297,11 @@ SymTableEntry* lookup_active(SymTable *t, char *name, int scope){
 }
 
 SymTableEntry* lookup_variable(SymTable *t, char *name, int scope){
-    SymTableEntry *iter, *scopeIter;
-    int h, curScope;
+    SymTableEntry *iter;
+    int curScope;
 
     for(curScope = scope; curScope >= 0; curScope--){
-        if((iter = lookup_no_type(t, name, curScope)) != NULL)
+        if((iter = lookup_active(t, name, curScope)) != NULL)
             return iter;
     }
 
@@ -359,7 +359,7 @@ SymTableEntry *function_lookup(SymTable *t, char *name, int scope){
             if(strcmp(iter->value.varValue->name, name) == 0 && iter->value.varValue->scope == scope)
                 return iter;
         }else{
-            if(strcmp(iter->value.funcValue->name, name) == 0 && (iter->value.varValue->scope == scope || iter->type == LIB_FUNC))
+            if(strcmp(iter->value.funcValue->name, name) == 0 && iter->value.funcValue->scope == scope)
                 return iter;
         }
 
