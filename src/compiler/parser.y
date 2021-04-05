@@ -437,13 +437,14 @@ funcstart   :   FUNCTION ID {
                                 }
                             }
                 | FUNCTION  {  
-                                static char *s;
+                                char *s;
                                 s = (char *)malloc(8 * sizeof(char));
-
-                                sprintf(s, "@%d", _anon_func_counter);
+                                _func_name = s;
+     
+                                sprintf(s, "$%d", _anon_func_counter);
 
                                 insert(symTable, s, scope, yylineno, USER_FUNC);
- 
+
                                 _anon_func_counter++;
                             }
 
