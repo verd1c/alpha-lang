@@ -162,9 +162,9 @@ lvalue      :   ID                          {
                                                 if((e = lookup_no_type(symTable, $2, scope)) == NULL){
                                                     if((e = lookup(symTable, $2, 0, LIB_FUNC)) == NULL){
                                                         if(scope == 0){
-                                                            insert(symTable, $2, scope, yylineno, GLOBAL_VAR);
+                                                            $$ = insert(symTable, $2, scope, yylineno, GLOBAL_VAR);
                                                         }else{
-                                                            insert(symTable, $2, scope, yylineno, LOCAL_VAR);
+                                                            $$ = insert(symTable, $2, scope, yylineno, LOCAL_VAR);
                                                         }
                                                     }else{
                                                         printf("input:%d: error: local symbol %s is attempting to shadow a library function\n", yylineno, $2);
@@ -266,7 +266,19 @@ funcstart   :   FUNCTION ID {
                                         printf("input:%d: error: function %s has conflicting type with variable %s first defined in line %d\n", yylineno, $2, e->value.varValue->name, e->value.varValue->line);
                                 }
                             }
-                | FUNCTION
+                | FUNCTION  {
+                                SymTableEntry *e;
+                                int entryScope;
+                                
+                                static char *s;
+                                s = (char *)malloc(5*sizeof(char));
+
+                                sprintf(s, "@%d", _anon_func_counter);
+
+                                insert(symTable, s, scope, yylineno, USER_FUNC);
+
+                                _anon_func_counter++;
+                            }
 
 const       :   NUM | STRING | NIL | TRUE | FALSE
 
