@@ -18,6 +18,7 @@
     int _anon_func_counter = 0;
     int _further_checks = 0;
     int _func_lvalue_check = 0;
+    int _in_control=0;
 
     int scope;
     extern int yylineno;
@@ -43,8 +44,8 @@
 %token<strValue>    LEFT_BRACE RIGHT_BRACE LEFT_BRACKET RIGHT_BRACKET LEFT_PARENTHESIS RIGHT_PARENTHESIS SEMICOLON COMMA COLON DOUBLE_COLON DOT DOUBLE_DOT
 %token<strValue>    EQUALS PLUS MINUS MULT DIV MOD EQUALS_EQUALS NOT_EQUALS PLUS_PLUS MINUS_MINUS GREATER_THAN LESS_THAN GREATER_OR_EQUAL LESS_OR_EQUAL UMINUS
 
-%type<strValue>     member call arg idlist
-%type<exprValue>    lvalue funcstart
+%type<strValue>     member call arg idlist ifstmt whilestmt forstmt
+%type<exprValue>    lvalue funcstart 
 
 %right EQUALS
 %left OR
@@ -68,19 +69,41 @@ statements  :   statements statement
                 ;
 
 statement   :   expression SEMICOLON
-                | ifstmt
+                | ifstmt    
                 | whilestmt
-                | forstmt
-                | returnstmt
-                | BREAK SEMICOLON
-                | CONTINUE SEMICOLON
+                | forstmt  
+                | returnstmt            {
+                                            if(scope==0 && _in_control==0){
+                                                printf("input:%d: error:  Return outside of scope \n", yylineno);
+                                            }else{
+                                                 //printf("Returns  %d %d\n", e->value.varValue->line, yylineno);
+                                                if(_func_count>0 && _in_control >0) _in_control--;
+                                                else _in_control=0;
+                                            }
+                                        }
+
+                | BREAK SEMICOLON       {
+                                            if(scope==0 && _in_control==0){
+                                                printf("input:%d: error:  Break outside of scope \n", yylineno);
+                                            }else{
+                                                if(_in_control>0)  _in_control--;
+                                            }
+                                        }      
+                | CONTINUE SEMICOLON    { 
+                                            if(scope==0 && _in_control==0){
+
+                                                printf("input:%d: error:  Continue outside of scope \n", yylineno);
+                                            }else{
+                                                if(_in_control>0)  _in_control--;
+                                            }
+                                        }
                 | block
                 | funcdef
                 | SEMICOLON
                 ;
 
-expression  :   assignexpr
-                | expression PLUS expression
+expression  :   assignexpr 
+                | expression PLUS expression 
                 | expression MINUS expression
                 | expression MULT expression
                 | expression DIV expression
@@ -89,7 +112,7 @@ expression  :   assignexpr
                 | expression GREATER_OR_EQUAL expression
                 | expression LESS_THAN expression
                 | expression LESS_OR_EQUAL expression
-                | expression EQUALS_EQUALS expression
+                | expression EQUALS_EQUALS expression 
                 | expression NOT_EQUALS expression
                 | expression AND expression
                 | expression OR expression
@@ -492,13 +515,13 @@ arg         :   ID   {
                         }                         
                     }
 
-ifstmt      :   IF LEFT_PARENTHESIS expression RIGHT_PARENTHESIS statement
-                | IF LEFT_PARENTHESIS expression RIGHT_PARENTHESIS statement ELSE statement
+ifstmt      :   IF { _in_control++; printf("line: %d: Found IF\n", yylineno); }LEFT_PARENTHESIS expression RIGHT_PARENTHESIS statement
+                | IF  { _in_control++; printf("line: %d: Found IF\n", yylineno); } LEFT_PARENTHESIS expression RIGHT_PARENTHESIS statement ELSE statement  
                 ;
 
-whilestmt   :   WHILE LEFT_PARENTHESIS expression RIGHT_PARENTHESIS statement
+whilestmt   :   WHILE  { _in_control++; printf("line: %d: Found WHILE \n", yylineno);} LEFT_PARENTHESIS expression RIGHT_PARENTHESIS statement 
 
-forstmt     :   FOR LEFT_PARENTHESIS elist SEMICOLON expression SEMICOLON elist RIGHT_PARENTHESIS statement
+forstmt     :   FOR  { _in_control++; printf("line: %d: Found FOR \n", yylineno);} LEFT_PARENTHESIS elist SEMICOLON expression SEMICOLON elist RIGHT_PARENTHESIS statement  
 
 returnstmt  :   RETURN SEMICOLON
                 | RETURN expression SEMICOLON
