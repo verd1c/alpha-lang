@@ -44,7 +44,7 @@
 %token<strValue>    LEFT_BRACE RIGHT_BRACE LEFT_BRACKET RIGHT_BRACKET LEFT_PARENTHESIS RIGHT_PARENTHESIS SEMICOLON COMMA COLON DOUBLE_COLON DOT DOUBLE_DOT
 %token<strValue>    EQUALS PLUS MINUS MULT DIV MOD EQUALS_EQUALS NOT_EQUALS PLUS_PLUS MINUS_MINUS GREATER_THAN LESS_THAN GREATER_OR_EQUAL LESS_OR_EQUAL UMINUS
 
-%type<strValue>     member call arg idlist ifstmt whilestmt forstmt
+%type<strValue>     member call arg idlist
 %type<exprValue>    lvalue funcstart 
 
 %right EQUALS
@@ -370,7 +370,7 @@ member      :   lvalue DOT ID   {}
                 | call LEFT_BRACE expression RIGHT_BRACE
                 ;
 
-call        :   call LEFT_PARENTHESIS elist RIGHT_PARENTHESIS
+call        :   call LEFT_PARENTHESIS elist RIGHT_PARENTHESIS {printf("line: %d: Function call\n", yylineno);}
                 | lvalue callsuffix {
                                         SymTableEntry* e;
 
@@ -435,6 +435,7 @@ blockstart  :   LEFT_BRACKET    {
                                 }
 
 blockend    :   RIGHT_BRACKET   {
+                                    // Scope down and hide old symbols
                                     scope_down(symTable);
                                 }
 
@@ -444,6 +445,8 @@ blockstmt   :   statement
 
 funcdef     :   funcstart LEFT_PARENTHESIS {scope++;} idlist RIGHT_PARENTHESIS  {    scope--; 
                                                                                     _func_count++;
+
+                                                                                    // Push function to stack
                                                                                     if($1)
                                                                                         push(stack, $1);
                                                                                     //printCallStack(stack, yylineno);
@@ -451,6 +454,8 @@ funcdef     :   funcstart LEFT_PARENTHESIS {scope++;} idlist RIGHT_PARENTHESIS  
                                                                                     
                 block   {
                             _func_count--;
+
+                            // Removing function from stack
                             if($1)
                                 pop(stack);
                         }
@@ -479,6 +484,8 @@ funcstart   :   FUNCTION ID {
                                         printf("input:%d: error: function %s has conflicting type with variable %s first defined in line %d\n", yylineno, $2, e->value.varValue->name, e->value.varValue->line);
                                     $$ = NULL;
                                 }
+
+                                printf("line: %d: function definition\n", yylineno);
                             }
                 | FUNCTION  {  
                                 char *s;
@@ -490,6 +497,8 @@ funcstart   :   FUNCTION ID {
                                 $$ = insert(symTable, s, scope, yylineno, USER_FUNC);
 
                                 _anon_func_counter++;
+
+                                printf("line: %d: anonymous function definition\n", yylineno);
                             }
 
 const       :   NUM | STRING | NIL | TRUE | FALSE
@@ -515,13 +524,19 @@ arg         :   ID   {
                         }                         
                     }
 
-ifstmt      :   IF { _in_control++; printf("line: %d: Found IF\n", yylineno); }LEFT_PARENTHESIS expression RIGHT_PARENTHESIS statement
-                | IF  { _in_control++; printf("line: %d: Found IF\n", yylineno); } LEFT_PARENTHESIS expression RIGHT_PARENTHESIS statement ELSE statement  
+ifstmt      :   ifstart expression RIGHT_PARENTHESIS statement
+                | ifstart expression RIGHT_PARENTHESIS statement ELSE statement
                 ;
 
-whilestmt   :   WHILE  { _in_control++; printf("line: %d: Found WHILE \n", yylineno);} LEFT_PARENTHESIS expression RIGHT_PARENTHESIS statement 
+ifstart     :   IF LEFT_PARENTHESIS { _in_control++; printf("line: %d: if statement\n", yylineno); }
 
-forstmt     :   FOR  { _in_control++; printf("line: %d: Found FOR \n", yylineno);} LEFT_PARENTHESIS elist SEMICOLON expression SEMICOLON elist RIGHT_PARENTHESIS statement  
+whilestmt   :   whilestart expression RIGHT_PARENTHESIS statement
+
+whilestart  :   WHILE LEFT_PARENTHESIS { _in_control++; printf("line: %d: while statement\n", yylineno);}
+
+forstmt     :   forstart elist SEMICOLON expression SEMICOLON elist RIGHT_PARENTHESIS statement
+
+forstart    :   FOR LEFT_PARENTHESIS { _in_control++; printf("line: %d: for statement\n", yylineno);} 
 
 returnstmt  :   RETURN SEMICOLON
                 | RETURN expression SEMICOLON
