@@ -7,6 +7,7 @@
 #include <string.h>
 
 #define SIZE 512
+#define CALL_STACK_SIZE 64
 #define HASH_MULTIPLIER 65599
 
 extern int scope;
@@ -61,6 +62,13 @@ typedef struct SymTable_t{
 
 } SymTable;
 
+typedef struct CallStack_t{
+    int size;
+    int top;
+
+    SymTableEntry *stack[CALL_STACK_SIZE];
+} CallStack;
+
 SymTable* init_sym_table();
 SymTableEntry* lookup(SymTable *t, char *text, int scope, enum EntryType type);
 SymTableEntry* lookup_no_type(SymTable *t, char *name, int scope);
@@ -69,3 +77,10 @@ void scope_down(SymTable *t);
 SymTableEntry *function_lookup(SymTable *t, char *name, int scope);
 SymTableEntry* lookup_variable(SymTable *t, char *name, int scope);
 SymTableEntry* lookup_active(SymTable *t, char *name, int scope);
+
+// Stack
+CallStack *init_call_stack();
+void push(CallStack *s, SymTableEntry *e);
+void pop(CallStack *s);
+void printCallStack(CallStack *s, int line);
+int is_valid(CallStack *s, SymTableEntry *target, int curScope);

@@ -17,12 +17,14 @@
     int _func_count = 0;
     int _anon_func_counter = 0;
     int _further_checks = 0;
+    int _func_lvalue_check = 0;
 
     int scope;
     extern int yylineno;
     extern char *yytext;
     extern FILE *yyin;
     SymTable *symTable;
+    CallStack *stack;
 %}
 
 %start program
@@ -41,8 +43,8 @@
 %token<strValue>    LEFT_BRACE RIGHT_BRACE LEFT_BRACKET RIGHT_BRACKET LEFT_PARENTHESIS RIGHT_PARENTHESIS SEMICOLON COMMA COLON DOUBLE_COLON DOT DOUBLE_DOT
 %token<strValue>    EQUALS PLUS MINUS MULT DIV MOD EQUALS_EQUALS NOT_EQUALS PLUS_PLUS MINUS_MINUS GREATER_THAN LESS_THAN GREATER_OR_EQUAL LESS_OR_EQUAL UMINUS
 
-%type<strValue>     member call arg funcstart idlist
-%type<exprValue>    lvalue
+%type<strValue>     member call arg idlist
+%type<exprValue>    lvalue funcstart
 
 %right EQUALS
 %left OR
@@ -113,7 +115,7 @@ term        :   LEFT_PARENTHESIS expression RIGHT_PARENTHESIS
                                             insert(symTable, e->value.varValue->name, scope, yylineno, GLOBAL_VAR);
                                         }else
                                             insert(symTable, e->value.varValue->name, scope, yylineno, LOCAL_VAR);
-                                    }else if(_func_count != 0){
+                                    }else if(!is_valid(stack, e, scope)){
                                         if(e->value.varValue->scope != scope){
                                             printf("input:%d: error: could not access variable %s\n", yylineno, e->value.varValue->name);
                                         }
@@ -122,7 +124,7 @@ term        :   LEFT_PARENTHESIS expression RIGHT_PARENTHESIS
                                 }else{
                                     
                                     // Functions can not be l-values
-                                    printf("input:%d: error: on function %s, functions cannot be l-values\n", yylineno, e->value.funcValue->name);
+                                    if(_func_lvalue_check) printf("input:%d: error: on function %s, functions cannot be l-values\n", yylineno, e->value.funcValue->name);
                                 }
                             }
                         }
@@ -142,7 +144,7 @@ term        :   LEFT_PARENTHESIS expression RIGHT_PARENTHESIS
                                             insert(symTable, e->value.varValue->name, scope, yylineno, GLOBAL_VAR);
                                         }else
                                             insert(symTable, e->value.varValue->name, scope, yylineno, LOCAL_VAR);
-                                    }else if(_func_count != 0){
+                                    }else if(!is_valid(stack, e, scope)){
                                         if(e->value.varValue->scope != scope){
                                             printf("input:%d: error: could not access variable %s\n", yylineno, e->value.varValue->name);
                                         }
@@ -151,7 +153,7 @@ term        :   LEFT_PARENTHESIS expression RIGHT_PARENTHESIS
                                 }else{
                                     
                                     // Functions can not be l-values
-                                    printf("input:%d: error: on function %s, functions cannot be l-values\n", yylineno, e->value.funcValue->name);
+                                    if(_func_lvalue_check) printf("input:%d: error: on function %s, functions cannot be l-values\n", yylineno, e->value.funcValue->name);
                                 }
                             }
                         }
@@ -171,7 +173,7 @@ term        :   LEFT_PARENTHESIS expression RIGHT_PARENTHESIS
                                             insert(symTable, e->value.varValue->name, scope, yylineno, GLOBAL_VAR);
                                         }else
                                             insert(symTable, e->value.varValue->name, scope, yylineno, LOCAL_VAR);
-                                    }else if(_func_count != 0){
+                                    }else if(!is_valid(stack, e, scope)){
                                         if(e->value.varValue->scope != scope){
                                             printf("input:%d: error: could not access variable %s\n", yylineno, e->value.varValue->name);
                                         }
@@ -180,7 +182,7 @@ term        :   LEFT_PARENTHESIS expression RIGHT_PARENTHESIS
                                 }else{
                                     
                                     // Functions can not be l-values
-                                    printf("input:%d: error: on function %s, functions cannot be l-values\n", yylineno, e->value.funcValue->name);
+                                    if(_func_lvalue_check) printf("input:%d: error: on function %s, functions cannot be l-values\n", yylineno, e->value.funcValue->name);
                                 }
                             }
                         }
@@ -200,7 +202,7 @@ term        :   LEFT_PARENTHESIS expression RIGHT_PARENTHESIS
                                             insert(symTable, e->value.varValue->name, scope, yylineno, GLOBAL_VAR);
                                         }else
                                             insert(symTable, e->value.varValue->name, scope, yylineno, LOCAL_VAR);
-                                    }else if(_func_count != 0){
+                                    }else if(!is_valid(stack, e, scope)){
                                         if(e->value.varValue->scope != scope){
                                             printf("input:%d: error: could not access variable %s\n", yylineno, e->value.varValue->name);
                                         }
@@ -209,7 +211,7 @@ term        :   LEFT_PARENTHESIS expression RIGHT_PARENTHESIS
                                 }else{
                                     
                                     // Functions can not be l-values
-                                    printf("input:%d: error: on function %s, functions cannot be l-values\n", yylineno, e->value.funcValue->name);
+                                    if(_func_lvalue_check) printf("input:%d: error: on function %s, functions cannot be l-values\n", yylineno, e->value.funcValue->name);
                                 }
                             }
                         }
@@ -233,7 +235,7 @@ assignexpr  :   lvalue
                                             insert(symTable, e->value.varValue->name, scope, yylineno, GLOBAL_VAR);
                                         }else
                                             insert(symTable, e->value.varValue->name, scope, yylineno, LOCAL_VAR);
-                                    }else if(_func_count != 0){
+                                    }else if(!is_valid(stack, e, scope)){
                                         if(e->value.varValue->scope != scope && e->type != GLOBAL_VAR){
                                             printf("input:%d: error: could not access variable %s\n", yylineno, e->value.varValue->name);
                                         }
@@ -242,7 +244,7 @@ assignexpr  :   lvalue
                                 }else{
                                     
                                     // Functions can not be l-values
-                                    printf("input:%d: error: on function %s, functions cannot be l-values\n", yylineno, e->value.funcValue->name);
+                                    if(_func_lvalue_check) printf("input:%d: error: on function %s, functions cannot be l-values\n", yylineno, e->value.funcValue->name);
                                 }
                             }
                         }
@@ -264,7 +266,7 @@ primary     :   lvalue  {
                                             insert(symTable, e->value.varValue->name, scope, yylineno, GLOBAL_VAR);
                                         }else
                                             insert(symTable, e->value.varValue->name, scope, yylineno, LOCAL_VAR);
-                                    }else if(_func_count != 0){
+                                    }else if(!is_valid(stack, e, scope)){
                                         if(e->value.varValue->scope != scope && e->type != GLOBAL_VAR){
                                             printf("input:%d: error: could not access variable %s\n", yylineno, e->value.varValue->name);
                                         }
@@ -297,6 +299,7 @@ lvalue      :   ID                          {
                                                     $$ = e;
                                                 }
                                                 _further_checks = 1;
+                                                _func_lvalue_check = 1;
                                             }
                 | LOCAL ID                  {
                                                 SymTableEntry *e;
@@ -318,6 +321,7 @@ lvalue      :   ID                          {
                                                     $$ = e;
                                                 }
                                                 _further_checks = 1;
+                                                _func_lvalue_check = 1;
                                             }
                 | DOUBLE_COLON ID           {
                                                 SymTableEntry *e;
@@ -325,16 +329,16 @@ lvalue      :   ID                          {
                                                 // Check globals
                                                 if((e = lookup_no_type(symTable, $2, 0)) == NULL){
                                                     printf("input:%d: error: global reference %s in line %d not found\n", yylineno, $2, yylineno);
-                                                    _further_checks = 0;
                                                     $$ = NULL;
                                                 }else{
                                                     // If exists, set reference
-                                                    _further_checks = 0;
                                                     $$ = e;
                                                 }
                                                 _further_checks = 0;
+                                                _func_lvalue_check = 1;
                                             }
-                | member                    {}
+                | member                    {
+                                            _func_lvalue_check = 0;}
                 ;
 
 member      :   lvalue DOT ID   {}
@@ -362,7 +366,7 @@ call        :   call LEFT_PARENTHESIS elist RIGHT_PARENTHESIS
                                                         insert(symTable, e->value.varValue->name, scope, yylineno, GLOBAL_VAR);
                                                     }else
                                                         insert(symTable, e->value.varValue->name, scope, yylineno, LOCAL_VAR);
-                                                }else if(_func_count != 0){
+                                                }else if(!is_valid(stack, e, scope)){
                                                     if(e->value.varValue->scope != scope){
                                                         printf("input:%d: error: could not access variable %s\n", yylineno, e->value.varValue->name);
                                                     }
@@ -415,18 +419,34 @@ blockstmt   :   statement
                 | statement blockstmt
                 ;
 
-funcdef     :   funcstart LEFT_PARENTHESIS {scope++;} idlist RIGHT_PARENTHESIS {scope--; _func_count++;} block {_func_count--;}
+funcdef     :   funcstart LEFT_PARENTHESIS {scope++;} idlist RIGHT_PARENTHESIS  {    scope--; 
+                                                                                    _func_count++;
+                                                                                    if($1)
+                                                                                        push(stack, $1);
+                                                                                    //printCallStack(stack, yylineno);
+                                                                                } 
+                                                                                    
+                block   {
+                            _func_count--;
+                            if($1)
+                                pop(stack);
+                        }
                 ;
 
 funcstart   :   FUNCTION ID {
                                 SymTableEntry *e;
 
-                                $$ = $2;
                                 _func_name = $2;
 
                                 // Search for libfunc
                                 if((e = function_lookup(symTable, $2, scope)) == NULL){
-                                    insert(symTable, $2, scope, yylineno, USER_FUNC);
+
+                                    // Check libfuncs
+                                    if((e = lookup(symTable, $2, 0, LIB_FUNC)) != NULL){
+                                        printf("input:%d: error: shadowing of library function %s is not permitted\n", yylineno, $2);
+                                    }else{
+                                        $$ = insert(symTable, $2, scope, yylineno, USER_FUNC);
+                                    }
                                 }else{
                                     if(e->type == USER_FUNC)
                                         printf("input:%d: error: duplicate user function %s, first defined in line %d\n", yylineno, $2, e->value.funcValue->line);
@@ -434,6 +454,7 @@ funcstart   :   FUNCTION ID {
                                         printf("input:%d: error: shadowing of library function %s is not permitted\n", yylineno, $2);
                                     else
                                         printf("input:%d: error: function %s has conflicting type with variable %s first defined in line %d\n", yylineno, $2, e->value.varValue->name, e->value.varValue->line);
+                                    $$ = NULL;
                                 }
                             }
                 | FUNCTION  {  
@@ -443,7 +464,7 @@ funcstart   :   FUNCTION ID {
      
                                 sprintf(s, "$%d", _anon_func_counter);
 
-                                insert(symTable, s, scope, yylineno, USER_FUNC);
+                                $$ = insert(symTable, s, scope, yylineno, USER_FUNC);
 
                                 _anon_func_counter++;
                             }
@@ -570,6 +591,7 @@ int main(int argc, char **argv){
     }
 
     symTable = init_sym_table();
+    stack = init_call_stack();
     yyparse();
 
     //printSymTable(symTable);

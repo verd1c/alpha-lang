@@ -356,10 +356,10 @@ SymTableEntry *function_lookup(SymTable *t, char *name, int scope){
     iter = t->table[h];
     while(iter != NULL){
         if(iter->type == LOCAL_VAR || iter->type == GLOBAL_VAR || iter->type == ARGUMENT_VAR){
-            if(strcmp(iter->value.varValue->name, name) == 0 && iter->value.varValue->scope == scope)
+            if(strcmp(iter->value.varValue->name, name) == 0 && iter->value.varValue->scope == scope && iter->isActive)
                 return iter;
         }else{
-            if(strcmp(iter->value.funcValue->name, name) == 0 && iter->value.funcValue->scope == scope)
+            if(strcmp(iter->value.funcValue->name, name) == 0 && iter->value.funcValue->scope == scope && iter->isActive)
                 return iter;
         }
 
@@ -369,7 +369,89 @@ SymTableEntry *function_lookup(SymTable *t, char *name, int scope){
     return NULL;
 }
 
+int is_valid(CallStack *s, SymTableEntry *target, int curScope){
+    int targetScope, i, j;
+
+    if(s->top == -1)
+        return 1;
+
+    if(target->type == LOCAL_VAR || target->type == GLOBAL_VAR || target->type == ARGUMENT_VAR)
+        targetScope = target->value.varValue->scope;
+    else
+        targetScope = target->value.funcValue->scope;
+    
+    for(i = targetScope; i < curScope; i++){
+        for(j = s->size - 1; j >= s->top; j--){
+            if(s->stack[j]->value.funcValue->scope == i)
+                return 0;
+        }
+    }
+    
+    return 1;
+}
+
 void alpha_error(char *error, int line){
     fprintf(stderr, "input:%d: error: %s\n", line, error);
     return;
+}
+
+CallStack *init_call_stack(){
+    CallStack *stack;
+    
+    stack = (CallStack*)malloc(sizeof(CallStack));
+    stack->size = CALL_STACK_SIZE;
+    stack->top = -1;
+
+    return stack;
+}
+
+void push(CallStack *s, SymTableEntry *e){
+    if(s->top == -1){ // Empty
+        s->stack[s->size - 1] = e;
+        s->top = s->size - 1;
+    }else if(s->top == 0){ // Full
+        printf("Error: Call Stack Full\n");
+    }else{
+        s->stack[s->top - 1] = e;
+        s->top = s->top - 1;
+    }
+    return;
+}
+
+void pop(CallStack *s){
+    if(s->top == -1){
+        printf("Empty stack\n");
+    }else{
+        if(s->top == s->size - 1){
+            s->top = -1;
+        }else{
+            s->top = s->top + 1;
+        }
+    }
+}
+char *typeToStringA[] = {
+        "LOCAL_VAR",
+        "GLOBAL_VAR",
+        "ARGUMENT",
+
+        "USER_FUNC",
+        "LIB_FUNC"
+    };
+
+void printCallStack(CallStack *s, int line){
+    SymTableEntry *e;
+    printf("---------------------------------------------------\nSTACK AT LINE %d\n", line);
+    printf("Size: %d\n", s->size);
+    printf("Top: %d\n", s->top);
+    if(s->top == -1)
+        printf("Stack is empty\n");
+    for(int i = s->size - 1; i >= s->top; i--){
+        e = s->stack[i];
+        if(e->type == LOCAL_VAR || e->type == GLOBAL_VAR || e->type == ARGUMENT_VAR){
+            printf("SymTableEntry [%-20s] [%-4d] [%-5d] [%-10s]\n", e->value.varValue->name, e->value.varValue->line, e->value.varValue->scope, typeToStringA[e->type]);
+        }else{
+            printf("SymTableEntry [%-20s] [%-4d] [%-5d] [%-10s]\n", e->value.funcValue->name, e->value.funcValue->line, e->value.funcValue->scope, typeToStringA[e->type]);
+        }
+    }
+    printf("---------------------------------------------------\n");
 }
