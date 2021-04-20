@@ -1,6 +1,12 @@
 %{
+    #include <stdio.h>
+    #include <assert.h>
+    #include <stddef.h>
+    #include <string.h>
     #include "parser.h"
     #include "symbol_table.h"
+    #include "intermediate.h"
+
     int yylex (void);
     int yyerror (char* yaccProvidedMessage);
 
@@ -11,6 +17,18 @@
 
         "USER_FUNC",
         "LIB_FUNC"
+    };
+
+    char *opcodeToString[] =  {
+        "ASSIGN",  "ADD",    "SUB",
+        "MUL",    "DIV",    "MOD",
+        "UMINUS", "AND",    "OR",
+        "NOT",    "IF_EQ",  "IF_NOTEQ",
+        "IF_LESSEQ",  "IF_GREATEREQ",   "IF_LESS",
+        "IF_GREATER",    "CALL", "PARAM",
+        "RET",   "GETRETVAL",  "FUNCSTART",
+        "FUNCEND",    "TABLECREATE", 
+        "TABLEGETELEM",   "TABLESETELEM"
     };
 
     char *_func_name;
@@ -35,7 +53,8 @@
     int     intValue;
     double  numValue;
 
-    struct SymTableEntry* exprValue;
+    struct SymTableEntry* symValue;
+    struct Expression* exprValue;
 }
 
 %token<numValue>    NUM
@@ -45,7 +64,8 @@
 %token<strValue>    EQUALS PLUS MINUS MULT DIV MOD EQUALS_EQUALS NOT_EQUALS PLUS_PLUS MINUS_MINUS GREATER_THAN LESS_THAN GREATER_OR_EQUAL LESS_OR_EQUAL UMINUS
 
 %type<strValue>     member call arg idlist
-%type<exprValue>    lvalue funcstart 
+%type<symValue>     lvalue funcstart 
+%type<exprValue>    expression
 
 %right EQUALS
 %left OR
@@ -366,7 +386,7 @@ lvalue      :   ID                          {
 
 member      :   lvalue DOT ID   {}
                 | lvalue LEFT_BRACE expression RIGHT_BRACE  {}
-                | call DOT ID
+                | call DOT ID 
                 | call LEFT_BRACE expression RIGHT_BRACE
                 ;
 
@@ -422,7 +442,7 @@ objectdef   :    LEFT_BRACE elist RIGHT_BRACE
 indexed     :   indexedelem
                 | indexedelem COMMA indexed
                 ;
-
+                
 indexedelem :   LEFT_BRACKET expression COLON expression RIGHT_BRACKET
                 ;
 
@@ -617,6 +637,71 @@ void printByScope(SymTable *symTable){
     return;
 }
 
+void printQuads(void){
+    Quad *q;
+    Expr *e;
+    int i;
+
+    printf("-------------------------------\n");
+    printf("Printing Quads");
+    printf("-------------------------------\n");
+    for(i = 0; i <= currQuad; i++){
+        q = (Quad*)(quads + i * sizeof(Quad));
+        printf("Quad [%-10s] ", opcodeToString[q->op]);
+
+        // print result
+        e = q->result;
+        if(e->type == CONSTNUM_E){
+            printf(" [%-7d] ", e->numConst);
+        }else if(e->type == CONSTBOOL_E){
+            if(e->boolConst == 0)
+                printf(" [%-5s] ", "false");
+            else
+                printf(" [%-5s] ", "true");
+        }else{
+            if(e->sym->type == LOCAL_VAR || e->sym->type == GLOBAL_VAR || e->sym->type == ARGUMENT_VAR)
+                printf(" [%-10s] ", e->sym->value.varValue->name);
+            else
+                printf(" [%-10s] ", e->sym->value.funcValue->name);
+        }
+
+        // print arg1
+        e = q->arg1;
+        if(e->type == CONSTNUM_E){
+            printf(" [%-7d] ", e->numConst);
+        }else if(e->type == CONSTBOOL_E){
+            if(e->boolConst == 0)
+                printf(" [%-5s] ", "false");
+            else
+                printf(" [%-5s] ", "true");
+        }else{
+            if(e->sym->type == LOCAL_VAR || e->sym->type == GLOBAL_VAR || e->sym->type == ARGUMENT_VAR)
+                printf(" [%-10s] ", e->sym->value.varValue->name);
+            else
+                printf(" [%-10s] ", e->sym->value.funcValue->name);
+        }
+
+        // print arg2
+        e = q->arg2;
+        if(e->type == CONSTNUM_E){
+            printf(" [%-7d] ", e->numConst);
+        }else if(e->type == CONSTBOOL_E){
+            if(e->boolConst == 0)
+                printf(" [%-5s] ", "false");
+            else
+                printf(" [%-5s] ", "true");
+        }else{
+            if(e->sym->type == LOCAL_VAR || e->sym->type == GLOBAL_VAR || e->sym->type == ARGUMENT_VAR)
+                printf(" [%-10s] ", e->sym->value.varValue->name);
+            else
+                printf(" [%-10s] ", e->sym->value.funcValue->name);
+        }
+    }
+
+
+
+}
+
 int main(int argc, char **argv){
     if(argc > 1){
         if(!(yyin = fopen(argv[1], "r"))){
@@ -628,6 +713,7 @@ int main(int argc, char **argv){
 
     }
 
+    init_quads();
     symTable = init_sym_table();
     stack = init_call_stack();
     yyparse();

@@ -1,4 +1,8 @@
 #include "symbol_table.h"
+#include <stdio.h>
+#include <stdlib.h>
+#include <stddef.h>
+#include <string.h>
 
 static int hash(char *text){
     size_t i;
@@ -96,6 +100,8 @@ void addToScopeChain(SymTable *t, SymTableEntry *e){
     if(t->scopeChain == NULL){
         t->scopeChain = e;
         //asm __volatile__ (".byte 0xc3");
+        e->nextInScope = NULL;
+        e->nextScope = NULL;
         return;
     }
 
@@ -173,13 +179,29 @@ SymTableEntry *insert(SymTable *t, char *name, int scope, int line, enum EntryTy
     if(t->table[h] == NULL){
         t->table[h] = (SymTableEntry*)malloc(sizeof(SymTableEntry));
 
+        if (t->table[h] == NULL) {
+            printf("Memory error\n");
+            exit(0);
+        }
+
         if(type == LOCAL_VAR || type == GLOBAL_VAR || type == ARGUMENT_VAR){
             t->table[h]->value.varValue = (Variable*)malloc(sizeof(Variable));
+
+            if (!t->table[h]->value.varValue) {
+                printf("Memory error\n");
+                exit(0);
+            }
+
             t->table[h]->value.varValue->name = name;
             t->table[h]->value.varValue->scope = scope;
             t->table[h]->value.varValue->line = line;
         }else{
             t->table[h]->value.funcValue = (Function*)malloc(sizeof(Function));
+
+            if (!t->table[h]->value.funcValue) {
+
+            }
+
             t->table[h]->value.funcValue->name = name;
             t->table[h]->value.funcValue->scope = scope;
             t->table[h]->value.funcValue->line = line;
@@ -189,6 +211,9 @@ SymTableEntry *insert(SymTable *t, char *name, int scope, int line, enum EntryTy
 
         t->table[h]->nextEntry = NULL;
         t->table[h]->isActive = 1;
+        // Set nulls (win)
+        t->table[h]->nextInScope = NULL;
+        t->table[h]->nextScope = NULL;
         addToScopeChain(t, t->table[h]);
         return t->table[h];
     }else{
@@ -200,13 +225,30 @@ SymTableEntry *insert(SymTable *t, char *name, int scope, int line, enum EntryTy
 
         iter->nextEntry = (SymTableEntry*)malloc(sizeof(SymTableEntry));
 
+        if (iter->nextEntry == NULL) {
+            printf("Memory error\n");
+            exit(0);
+        }
+
         if(type == LOCAL_VAR || type == GLOBAL_VAR || type == ARGUMENT_VAR){
             iter->nextEntry->value.varValue = (Variable*)malloc(sizeof(Variable));
+
+            if (!iter->nextEntry->value.varValue) {
+                printf("Memory error\n");
+                exit(0);
+            }
+
             iter->nextEntry->value.varValue->name = name;
             iter->nextEntry->value.varValue->scope = scope;
             iter->nextEntry->value.varValue->line = line;
         }else{
             iter->nextEntry->value.funcValue = (Function*)malloc(sizeof(Function));
+
+            if (!iter->nextEntry->value.funcValue) {
+                printf("Memory error\n");
+                exit(0);
+            }
+
             iter->nextEntry->value.funcValue->name = name;
             iter->nextEntry->value.funcValue->scope = scope;
             iter->nextEntry->value.funcValue->line = line;
@@ -216,6 +258,8 @@ SymTableEntry *insert(SymTable *t, char *name, int scope, int line, enum EntryTy
 
         iter->nextEntry->nextEntry = NULL;
         iter->nextEntry->isActive = 1;
+        iter->nextInScope = NULL;
+        iter->nextScope = NULL;
         addToScopeChain(t, iter->nextEntry);
         return iter->nextEntry;
     }

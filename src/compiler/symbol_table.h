@@ -1,10 +1,9 @@
+#ifndef __SYM_TABLE__
+#define __SYM_TABLE__
+
 /*
 * Structs used in bison
 */
-#include <stdio.h>
-#include <stdlib.h>
-#include <stddef.h>
-#include <string.h>
 
 #define SIZE 512
 #define CALL_STACK_SIZE 64
@@ -84,3 +83,5 @@ void push(CallStack *s, SymTableEntry *e);
 void pop(CallStack *s);
 void printCallStack(CallStack *s, int line);
 int is_valid(CallStack *s, SymTableEntry *target, int curScope);
+
+#endif

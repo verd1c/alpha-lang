@@ -1,4 +1,4 @@
 default:
 	flex --outfile=scanner.c lex.l
-	bison --yacc --defines --output=parser.c parser.y -v
+	bison --yacc --defines --output=parser/parser.c parser/parser.y -v
 	gcc -o calc parser.c scanner.c symbol_table.c -g -Wall
