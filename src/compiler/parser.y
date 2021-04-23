@@ -1,5 +1,6 @@
 %{
     #include <stdio.h>
+    #include <stdlib.h>
     #include <assert.h>
     #include <stddef.h>
     #include <string.h>
@@ -9,6 +10,10 @@
 
     int yylex (void);
     int yyerror (char* yaccProvidedMessage);
+
+    Quad*           quads;
+    unsigned        total;
+    unsigned int    currQuad;
 
     char *typeToString[] = {
         "LOCAL_VAR",
@@ -63,9 +68,8 @@
 %token<strValue>    LEFT_BRACE RIGHT_BRACE LEFT_BRACKET RIGHT_BRACKET LEFT_PARENTHESIS RIGHT_PARENTHESIS SEMICOLON COMMA COLON DOUBLE_COLON DOT DOUBLE_DOT
 %token<strValue>    EQUALS PLUS MINUS MULT DIV MOD EQUALS_EQUALS NOT_EQUALS PLUS_PLUS MINUS_MINUS GREATER_THAN LESS_THAN GREATER_OR_EQUAL LESS_OR_EQUAL UMINUS
 
-%type<strValue>     member call arg idlist
-%type<symValue>     lvalue funcstart 
-%type<exprValue>    expression
+%type<strValue>     member call arg idlist 
+%type<exprValue>    expression lvalue funcstart
 
 %right EQUALS
 %left OR
@@ -146,9 +150,10 @@ term        :   LEFT_PARENTHESIS expression RIGHT_PARENTHESIS
                             SymTableEntry *e;
 
                             // Check wether lvalue is a function
-                            e = $2;
 
-                            if(e && _further_checks){
+                            if($2 && $2->sym && _further_checks){
+                                e = $2->sym;
+
                                 if(e->type == LOCAL_VAR || e->type == GLOBAL_VAR || e->type == ARGUMENT_VAR){
 
                                     // If it's a variable, check wether we have to create a new one or its referencing an existing one
@@ -175,9 +180,10 @@ term        :   LEFT_PARENTHESIS expression RIGHT_PARENTHESIS
                             SymTableEntry *e;
 
                             // Check wether lvalue is a function
-                            e = $1;
 
-                            if(e && _further_checks){
+                            if($1 && $1->sym && _further_checks){
+                                e = $1->sym;
+
                                 if(e->type == LOCAL_VAR || e->type == GLOBAL_VAR || e->type == ARGUMENT_VAR){
 
                                     // If it's a variable, check wether we have to create a new one or its referencing an existing one
@@ -204,9 +210,10 @@ term        :   LEFT_PARENTHESIS expression RIGHT_PARENTHESIS
                             SymTableEntry *e;
 
                             // Check wether lvalue is a function
-                            e = $2;
 
-                            if(e && _further_checks){
+                            if($2 && $2->sym && _further_checks){
+                                e = $2->sym;
+
                                 if(e->type == LOCAL_VAR || e->type == GLOBAL_VAR || e->type == ARGUMENT_VAR){
 
                                     // If it's a variable, check wether we have to create a new one or its referencing an existing one
@@ -233,9 +240,10 @@ term        :   LEFT_PARENTHESIS expression RIGHT_PARENTHESIS
                             SymTableEntry *e;
 
                             // Check wether lvalue is a function
-                            e = $1;
 
-                            if(e && _further_checks){
+                            if($1 && $1->sym && _further_checks){
+                                e = $1->sym;
+
                                 if(e->type == LOCAL_VAR || e->type == GLOBAL_VAR || e->type == ARGUMENT_VAR){
 
                                     // If it's a variable, check wether we have to create a new one or its referencing an existing one
@@ -266,9 +274,10 @@ assignexpr  :   lvalue
                             SymTableEntry *e;
 
                             // Check wether lvalue is a function
-                            e = $1;
 
-                            if(e && _further_checks){
+                            if($1 && $1->sym && _further_checks){
+                                e = $1->sym;
+
                                 if(e->type == LOCAL_VAR || e->type == GLOBAL_VAR || e->type == ARGUMENT_VAR){
 
                                     // If it's a variable, check wether we have to create a new one or its referencing an existing one
@@ -297,9 +306,10 @@ primary     :   lvalue  {
                             SymTableEntry *e;
 
                             // Check wether lvalue is a function
-                            e = $1;
 
-                            if(e && _further_checks){
+                            if($1 && $1->sym && _further_checks){
+                                e = $1->sym;
+
                                 if(e->type == LOCAL_VAR || e->type == GLOBAL_VAR || e->type == ARGUMENT_VAR){
 
                                     // If it's a variable, check wether we have to create a new one or its referencing an existing one
@@ -332,14 +342,14 @@ lvalue      :   ID                          {
                                                     
                                                     // If not, insert the variable
                                                     if(scope == 0)
-                                                        $$ = insert(symTable, $1, scope, yylineno, GLOBAL_VAR);
+                                                        $$ = sym_expr(insert(symTable, $1, scope, yylineno, GLOBAL_VAR));
                                                     else
-                                                        $$ = insert(symTable, $1, scope, yylineno, LOCAL_VAR);
+                                                        $$ = sym_expr(insert(symTable, $1, scope, yylineno, LOCAL_VAR));
                                                 }else{
 
                                                     // If exists, set value for further checks
                                                     //printf("Setting valuue for further checks on-> %s %s\n", e->value.varValue->name, typeToString[e->type]);
-                                                    $$ = e;
+                                                    $$ = sym_expr(e);
                                                 }
                                                 _further_checks = 1;
                                                 _func_lvalue_check = 1;
@@ -351,9 +361,9 @@ lvalue      :   ID                          {
                                                 if((e = lookup_no_type(symTable, $2, scope)) == NULL){
                                                     if((e = lookup(symTable, $2, 0, LIB_FUNC)) == NULL){
                                                         if(scope == 0){
-                                                            $$ = insert(symTable, $2, scope, yylineno, GLOBAL_VAR);
+                                                            $$ = sym_expr(insert(symTable, $2, scope, yylineno, GLOBAL_VAR));
                                                         }else{
-                                                            $$ = insert(symTable, $2, scope, yylineno, LOCAL_VAR);
+                                                            $$ = sym_expr(insert(symTable, $2, scope, yylineno, LOCAL_VAR));
                                                         }
                                                     }else{
                                                         printf("input:%d: error: local symbol %s is attempting to shadow a library function\n", yylineno, $2);
@@ -361,7 +371,7 @@ lvalue      :   ID                          {
                                                     }
                                                 }else{
                                                     // If exists, set reference
-                                                    $$ = e;
+                                                    $$ = sym_expr(e);
                                                 }
                                                 _further_checks = 1;
                                                 _func_lvalue_check = 1;
@@ -375,7 +385,7 @@ lvalue      :   ID                          {
                                                     $$ = NULL;
                                                 }else{
                                                     // If exists, set reference
-                                                    $$ = e;
+                                                    $$ = sym_expr(e);
                                                 }
                                                 _further_checks = 0;
                                                 _func_lvalue_check = 1;
@@ -394,12 +404,13 @@ call        :   call LEFT_PARENTHESIS elist RIGHT_PARENTHESIS {printf("line: %d:
                 | lvalue callsuffix {
                                         SymTableEntry* e;
 
-                                        e = $1;
                                         //printf("Usage of %s as call in %d\n", e->value.funcValue->name, yylineno);
 
                                         // Check wether lvalue is a function
 
-                                        if(e){
+                                        if($1 && $1->sym){
+                                            e = $1->sym;
+
                                             if(e->type == LOCAL_VAR || e->type == GLOBAL_VAR || e->type == ARGUMENT_VAR){
 
                                                 // If it's a variable, check wether we have to create a new one or its referencing an existing one
@@ -467,8 +478,8 @@ funcdef     :   funcstart LEFT_PARENTHESIS {scope++;} idlist RIGHT_PARENTHESIS  
                                                                                     _func_count++;
 
                                                                                     // Push function to stack
-                                                                                    if($1)
-                                                                                        push(stack, $1);
+                                                                                    if($1 && $1->sym)
+                                                                                        push(stack, $1->sym);
                                                                                     //printCallStack(stack, yylineno);
                                                                                 } 
                                                                                     
@@ -476,7 +487,7 @@ funcdef     :   funcstart LEFT_PARENTHESIS {scope++;} idlist RIGHT_PARENTHESIS  
                             _func_count--;
 
                             // Removing function from stack
-                            if($1)
+                            if($1 && $1->sym)
                                 pop(stack);
                         }
                 ;
@@ -493,7 +504,7 @@ funcstart   :   FUNCTION ID {
                                     if((e = lookup(symTable, $2, 0, LIB_FUNC)) != NULL){
                                         printf("input:%d: error: shadowing of library function %s is not permitted\n", yylineno, $2);
                                     }else{
-                                        $$ = insert(symTable, $2, scope, yylineno, USER_FUNC);
+                                        $$ = sym_expr(insert(symTable, $2, scope, yylineno, USER_FUNC));
                                     }
                                 }else{
                                     if(e->type == USER_FUNC)
@@ -514,7 +525,7 @@ funcstart   :   FUNCTION ID {
      
                                 sprintf(s, "$%d", _anon_func_counter);
 
-                                $$ = insert(symTable, s, scope, yylineno, USER_FUNC);
+                                $$ = sym_expr(insert(symTable, s, scope, yylineno, USER_FUNC));
 
                                 _anon_func_counter++;
 

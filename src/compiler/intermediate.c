@@ -87,3 +87,14 @@ Expr* bool_expr(unsigned char bool) {
 
 	return expr;
 }
+
+Expr* sym_expr(SymTableEntry *e){
+	Expr *expr = (Expr*)malloc(sizeof(Expr));
+
+	memset(expr, 0, sizeof(Expr));
+
+	expr->type = VAR_E;
+	expr->sym = e;
+
+	return expr;
+}

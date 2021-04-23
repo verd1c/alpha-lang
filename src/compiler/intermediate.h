@@ -10,9 +10,9 @@
 typedef struct Quad_t Quad;
 typedef struct Expression Expr;
 
-Quad*           quads;
-unsigned        total;
-unsigned int    currQuad;
+extern Quad*           quads;
+extern unsigned        total;
+extern unsigned int    currQuad;
 
 enum iopcode_t {
     ASSIGN_I, ADD_I, SUB_I,
@@ -69,5 +69,6 @@ struct Quad_t {
 
 void init_quads(void);
 void emit(enum iopcode_t op, Expr* result, Expr* arg1, Expr* arg2, unsigned label, unsigned line);
+Expr* sym_expr(SymTableEntry *e);
 
 #endif
