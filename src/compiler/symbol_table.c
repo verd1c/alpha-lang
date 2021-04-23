@@ -258,8 +258,8 @@ SymTableEntry *insert(SymTable *t, char *name, int scope, int line, enum EntryTy
 
         iter->nextEntry->nextEntry = NULL;
         iter->nextEntry->isActive = 1;
-        iter->nextInScope = NULL;
-        iter->nextScope = NULL;
+        iter->nextEntry->nextInScope = NULL;
+        iter->nextEntry->nextScope = NULL;
         addToScopeChain(t, iter->nextEntry);
         return iter->nextEntry;
     }
