@@ -76,6 +76,7 @@ void scope_down(SymTable *t);
 SymTableEntry *function_lookup(SymTable *t, char *name, int scope);
 SymTableEntry* lookup_variable(SymTable *t, char *name, int scope);
 SymTableEntry* lookup_active(SymTable *t, char *name, int scope);
+SymTableEntry *lookup_temp(SymTable *t, int scope);
 
 // Stack
 CallStack *init_call_stack();

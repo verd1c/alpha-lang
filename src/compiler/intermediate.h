@@ -7,12 +7,14 @@
 #define CURR_SIZE   (total*sizeof(Quad))
 #define NEW_SIZE    (EXPAND_SIZE*sizeof(Quad)+CURR_SIZE)
 
-typedef struct Quad_t Quad;
-typedef struct Expression Expr;
+typedef struct Quad         Quad;
+typedef struct Expression   Expr;
+typedef struct Call         Call;
 
-extern Quad*           quads;
-extern unsigned        total;
-extern unsigned int    currQuad;
+extern Quad*            quads;
+extern unsigned         total;
+extern unsigned int     currQuad;
+extern long             _temp_counter;
 
 enum iopcode_t {
     ASSIGN_I, ADD_I, SUB_I,
@@ -58,7 +60,7 @@ struct Expression {
     struct Expression* next; // next
 };
 
-struct Quad_t {
+struct Quad {
     enum iopcode_t op;
     Expr* result;
     Expr* arg1;
@@ -67,8 +69,26 @@ struct Quad_t {
     unsigned line;
 };
 
+struct Call {
+    unsigned char isMethod;
+    char *name;
+    int scope;
+    Expr *elist;
+};
+
 void init_quads(void);
 void emit(enum iopcode_t op, Expr* result, Expr* arg1, Expr* arg2, unsigned label, unsigned line);
 Expr* sym_expr(SymTableEntry *e);
+Expr *nil_expr(void);
+Expr *num_expr(double num);
+Expr *bool_expr(unsigned char bool);
+SymTableEntry *new_temp(SymTable *t, int scope);
+Expr *make_call(SymTable *t, int scope, Expr *call, Expr *revelist);
+Expr *reverse_elist(Expr **elist);
+
+Call *function_call(unsigned char isMethod, char *name, int scope, Expr *elist);
+
+void print_call(Call *c);
+
 
 #endif

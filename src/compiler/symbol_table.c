@@ -352,6 +352,57 @@ SymTableEntry* lookup_variable(SymTable *t, char *name, int scope){
     return NULL;
 }
 
+SymTableEntry* lookup_temp(SymTable *t, int scope) {
+    SymTableEntry *iter, *maxTemp;
+    int iterScope, max, num;
+    char *name;
+
+    iter = t->scopeChain;
+
+    // Get iter scope
+    if (iter->type == LOCAL_VAR || iter->type == GLOBAL_VAR || iter->type == ARGUMENT_VAR)
+        iterScope = iter->value.varValue->scope;
+    else
+        iterScope = iter->value.funcValue->scope;
+
+    while (iter && iterScope < scope) {
+        iter = iter->nextScope;
+
+        // Get iter scope
+        if (iter->type == LOCAL_VAR || iter->type == GLOBAL_VAR || iter->type == ARGUMENT_VAR)
+            iterScope = iter->value.varValue->scope;
+        else
+            iterScope = iter->value.funcValue->scope;
+    }
+
+    if (!iter)
+        return NULL;
+
+    maxTemp = NULL;
+    max = -1;
+    while (iter) {
+
+        if (iter->type == LOCAL_VAR || iter->type == GLOBAL_VAR || iter->type == ARGUMENT_VAR)
+            name = iter->value.varValue->name;
+        else
+            name = iter->value.funcValue->name;
+        
+        if (strlen(name) > 1 && name[0] == '^') {
+            num = atoi(name + 1);
+
+            // ^1 -> ^2 -> ^3 
+            if (num > max) {
+                max = num;
+                maxTemp = iter;
+            }
+        }
+
+        iter = iter->nextInScope;
+    }
+    
+    return maxTemp;
+}
+
 void hide(SymTable *t, int scope){
     SymTableEntry *iter;
     int iterScope;
@@ -473,6 +524,7 @@ void pop(CallStack *s){
         }
     }
 }
+
 char *typeToStringA[] = {
         "LOCAL_VAR",
         "GLOBAL_VAR",

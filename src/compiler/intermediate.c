@@ -70,6 +70,21 @@ Expr* string_expr(char* str) {
 	return expr;
 }
 
+Expr *nil_expr(void) {
+	Expr *expr = (Expr *)malloc(sizeof(Expr));
+
+	if (!expr) {
+		alpha_message(stdout, MEMORY_ERROR, "malloc");
+		exit(0);
+	}
+
+	memset(expr, 0, sizeof(Expr));
+
+	expr->type = NIL_E;
+
+	return expr;
+}
+
 Expr* bool_expr(unsigned char bool) {
 	Expr* expr = (Expr*)malloc(sizeof(Expr));
 
@@ -88,6 +103,22 @@ Expr* bool_expr(unsigned char bool) {
 	return expr;
 }
 
+Expr *num_expr(double num) {
+	Expr *expr = (Expr *)malloc(sizeof(Expr));
+
+	if (!expr) {
+		alpha_message(stdout, MEMORY_ERROR, "malloc");
+		exit(0);
+	}
+
+	memset(expr, 0, sizeof(Expr));
+
+	expr->type = CONSTNUM_E;
+	expr->numConst = num;
+
+	return expr;
+}
+
 Expr* sym_expr(SymTableEntry *e){
 	Expr *expr = (Expr*)malloc(sizeof(Expr));
 
@@ -97,4 +128,80 @@ Expr* sym_expr(SymTableEntry *e){
 	expr->sym = e;
 
 	return expr;
+}
+
+
+/**/
+inline void reset_temp_counter(void) {
+	_temp_counter = 0;
+}
+
+char* new_temp_name(void) {
+	char* name;
+	name = (char*)malloc(10 * sizeof(char));
+
+	if (!name) {
+		alpha_message(stdout, MEMORY_ERROR, "malloc");
+		exit(0);
+	}
+
+	sprintf(name, "^%d", _temp_counter++);
+	return name;
+}
+
+
+// (x = (i + (1 + c)));
+//             ^1
+//           ^2
+
+SymTableEntry* new_temp(SymTable* t, int scope) {
+	return insert(t, new_temp_name(), scope, yylineno, LOCAL_VAR);
+}
+
+Call *function_call(unsigned char isMethod,
+					char *name,
+					int scope,
+					Expr *elist){
+	Call *call = (Call *)malloc(sizeof(Call));
+	assert(call);
+	call->isMethod = isMethod;
+	call->name = strdup(name);
+	call->scope = scope;
+	call->elist = elist;
+	return call;
+}
+
+
+Expr *make_call(SymTable* t, int scope, Expr *call, Expr *revelist) {
+	Expr *iter, *res;
+
+	iter = revelist;
+	while (iter) {
+		emit(PARAM_I, NULL, iter, NULL, 0, 0);
+		iter = iter->next;
+	}
+	emit(CALL_I, NULL, call, NULL, 0, 0);
+
+	res = sym_expr(new_temp(t, scope));
+	emit(GETRETVAL_I, res, NULL, NULL, 0, 0);
+	return res;
+}
+
+Expr *reverse_elist(Expr **elist) {
+	Expr *prev = NULL, *cur = NULL, *next = NULL;
+
+	cur = *elist;
+	while (cur) {
+		next = cur->next;
+		cur->next = prev;
+
+		prev = cur;
+		cur = next;
+	}
+	*elist = prev;
+	return *elist;
+}
+
+void print_call(Call *c) {
+	printf("Call [%d] [%-10s] [%-3d]\n", c->isMethod, c->name, c->scope);
 }

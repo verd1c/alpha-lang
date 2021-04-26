@@ -59,12 +59,17 @@ multiline_comment	"/""*"
 "<="            {return LESS_OR_EQUAL;}
 
 {intconst} {
-    yylval.numValue = atoi(yytext);
+   // yylval.numValue = atoi(yytext);
+   	int d;
+	sscanf(yytext, "%d", &d);
+	yylval.numValue = d;
     return NUM;
 }
 
 {intconst}\.{intconst} {
-    yylval.numValue = atoi(yytext);
+    int d;
+	sscanf(yytext, "%d", &d);
+	yylval.numValue = d;
     return NUM;
 }
 

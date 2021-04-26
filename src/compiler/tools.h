@@ -3,6 +3,9 @@
 #include <stdarg.h>
 #include <stdio.h>
 
+#define TRUE	1
+#define FALSE	0
+
 enum message_t {
 	INFO,
 	MEMORY_ERROR
