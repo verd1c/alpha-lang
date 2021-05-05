@@ -43,6 +43,7 @@
     int _further_checks = 0;
     int _func_lvalue_check = 0;
     int _in_control = 0;
+    int _in_control_loop = 0;
     long _temp_counter = 0;
 
     int scope;
@@ -66,14 +67,14 @@
 }
 
 %token<numValue>    NUM
-%token<strValue>    ID STRING
+%token<strValue>    ID STRING 
 %token<strValue>    IF ELSE WHILE FOR FUNCTION RETURN BREAK CONTINUE AND NOT OR LOCAL TRUE FALSE NIL
 %token<strValue>    LEFT_BRACE RIGHT_BRACE LEFT_BRACKET RIGHT_BRACKET LEFT_PARENTHESIS RIGHT_PARENTHESIS SEMICOLON COMMA COLON DOUBLE_COLON DOT DOUBLE_DOT
 %token<strValue>    EQUALS PLUS MINUS MULT DIV MOD EQUALS_EQUALS NOT_EQUALS PLUS_PLUS MINUS_MINUS GREATER_THAN LESS_THAN GREATER_OR_EQUAL LESS_OR_EQUAL UMINUS
 
-%type<numValue>     M ifprefix
-%type<strValue>     member arg idlist 
-%type<exprValue>    expression lvalue funcstart const primary term assignexpr elist call funcdef
+%type<numValue>      idlist N M  forprefix arg  whilecond loopstmt returnstmt
+%type<strValue>     member 
+%type<exprValue>    expression lvalue funcstart const primary term assignexpr elist call funcdef whilestmt whilestart objectdef statement ifprefix  ifstmt forstmt  block blockstart blockend 
 %type<functionCall> normcall methodcall callsuffix
 
 %right EQUALS
@@ -99,9 +100,10 @@ statements  :   statements {reset_temp_counter();} statement
 
 statement   :   expression SEMICOLON
                 | ifstmt    
-                | whilestmt
+                | whilestmt  {$$ = $1;}
                 | forstmt  
                 | returnstmt            {
+                                             $$ = $1;
                                             if(scope==0 && _in_control==0){
                                                 printf("input:%d: error:  Return outside of scope \n", yylineno);
                                             }else{
@@ -117,6 +119,10 @@ statement   :   expression SEMICOLON
                                             }else{
                                                 if(_in_control>0)  _in_control--;
                                             }
+                                            make_stmt(&$$);
+                                            $$->breaklist=llist(next_quad());
+                                            emit(JUMP_I, NULL, NULL, NULL, 0, yylineno);
+
                                         }      
                 | CONTINUE SEMICOLON    { 
                                             if(scope==0 && _in_control==0){
@@ -125,10 +131,13 @@ statement   :   expression SEMICOLON
                                             }else{
                                                 if(_in_control>0)  _in_control--;
                                             }
+                                            make_stmt(&$$);
+                                            $$->contlist=llist(next_quad());
+                                            emit(JUMP_I, NULL, NULL, NULL, 0, yylineno);
                                         }
-                | block
-                | funcdef
-                | SEMICOLON
+                | block {$$ = $1;}
+                | funcdef {$$ = $1;}
+                | SEMICOLON {$$ = $1;}
                 ;
 
 expression  :   assignexpr                      {
@@ -226,8 +235,18 @@ term        :   LEFT_PARENTHESIS expression RIGHT_PARENTHESIS
                     {
                         $$ = $2;
                     }
-                | UMINUS expression
-                | NOT expression
+                | UMINUS expression {
+                                             SymTableEntry *e;
+                                             $$ = $2;
+                                            e = $2->sym;
+                                               
+                                    }
+                | NOT expression {
+                                             SymTableEntry *e;
+                                             $$ = $2;
+                                            e = $2->sym;
+                                               
+                                    }
                 | PLUS_PLUS lvalue
                     {            
                         Expr *ex = (Expr*)0, *val = (Expr*)0;   
@@ -563,7 +582,7 @@ member      :   lvalue DOT ID   {
                     {
                         
                     }
-                | call LEFT_BRACE expression RIGHT_BRACE
+                | call LEFT_BRACE expression RIGHT_BRACE {}
                 ;
 
 call        :   call LEFT_PARENTHESIS elist RIGHT_PARENTHESIS   {
@@ -641,8 +660,8 @@ elist       :   expression                  {
                     }
                 ;
         
-objectdef   :    LEFT_BRACE elist RIGHT_BRACE
-                | LEFT_BRACE indexed RIGHT_BRACE
+objectdef   :    LEFT_BRACE elist RIGHT_BRACE {}
+                | LEFT_BRACE indexed RIGHT_BRACE {}
                 ;
 
 indexed     :   indexedelem
@@ -669,7 +688,8 @@ blockstmt   :   statement
                 | statement blockstmt
                 ;
 
-funcdef     :   funcstart LEFT_PARENTHESIS {scope++;} idlist RIGHT_PARENTHESIS  {    scope--; 
+funcdef     :   funcstart LEFT_PARENTHESIS {scope++;} idlist RIGHT_PARENTHESIS  {    
+                                                                                    scope--; 
                                                                                     _func_count++;
 
                                                                                     // Push function to stack
@@ -783,21 +803,74 @@ ifprefix    :   IF LEFT_PARENTHESIS { _in_control++; } expression RIGHT_PARENTHE
                         emit(JUMP_I, NULL, NULL, NULL, 0, yylineno);
                     }
 
-whilestmt   :   whilestart expression RIGHT_PARENTHESIS statement
+loopstart:      {  
+                    ++_in_control_loop;
+                } 
+                ;
 
-whilestart  :   WHILE LEFT_PARENTHESIS { _in_control++; printf("line: %d: while statement\n", yylineno);}
+loopend:        {  
+                    --_in_control_loop;//pop to bucket tou loop_stack                    
+                }
+                ;
 
-forstmt     :   forstart elist SEMICOLON expression SEMICOLON elist RIGHT_PARENTHESIS statement
+loopstmt:       loopstart statement loopend  {
+                                          
+                                            $$ = $2;
+                                        }
+                   
 
-forstart    :   FOR LEFT_PARENTHESIS { _in_control++; printf("line: %d: for statement\n", yylineno);} 
+
+whilestart  :   WHILE   { $$=next_quad(); }
+
+whilecond   : LEFT_PARENTHESIS { ++_in_control; printf("line: %d: while statement\n", yylineno);} expression RIGHT_PARENTHESIS{
+                                                                                                                                    mk_bool_vmasm($3);
+                                                                                                                                    emit(IF_EQ_I, NULL, $3, num_expr(1), next_quad() + 2, yylineno);
+                                                                                                                                    $$=next_quad();
+                                                                                                                                    emit(JUMP_I,NULL,NULL,NULL,$2,yylineno);  
+                                                                                                                            }
+
+whilestmt       :   whilestart whilecond loopstmt  {
+
+                                                emit(JUMP_I,NULL,NULL,NULL,$1,yylineno);  
+                                                patch_label($2,next_quad());
+                                                llist_patch($3->breaklist,next_quad());
+                                                llist_patch($3->contlist,$1);
+                                            }
+
+N           :   { $$ = next_quad(); 
+                emit(JUMP_I,NULL,NULL,NULL,0,yylineno);  
+                }
+
+forprefix   : forstart elist SEMICOLON M expression SEMICOLON  {
+                                                                mk_bool_vmasm($5);
+                                                                $$->test    = $4;
+                                                                $$->enter   = next_quad();
+                                                                emit(IF_EQ_I, NULL, $5, bool_expr(1), next_quad(), yylineno);
+                                                            }
+                ;
+
+forstmt     :   forprefix N elist RIGHT_PARENTHESIS N statement N {    
+                                                                patch_label($1->enter,$5+1);
+                                                                patch_label($2,next_quad());
+                                                                patch_label($5,$1->test);
+                                                                patch_label($7,$2+1);
+                                                                llist_patch($6->breaklist,next_quad());
+                                                                llist_patch($6->contlist,$2+1);
+                                                                }
+                ;
+
+forstart    :   FOR LEFT_PARENTHESIS { ++_in_control; printf("line: %d: for statement\n", yylineno);} 
 
 returnstmt  :   RETURN SEMICOLON
                     {
-                        emit(RET_I, NULL, NULL, NULL, 0, yylineno);
+                         
+                        emit(RET_I, NULL, NULL, NULL, next_quad(), yylineno);
                     }
                 | RETURN expression SEMICOLON
                     {
-                        emit(RET_I, $2, NULL, NULL, 0, yylineno);
+                        mk_bool_vmasm($2);
+                        emit(RET_I, $2, NULL, NULL, next_quad(), yylineno);
+                        $$=$2;
                     }
                 ;
 

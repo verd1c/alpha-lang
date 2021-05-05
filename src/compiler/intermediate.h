@@ -13,6 +13,7 @@ typedef int llist_t;
 typedef struct Quad         Quad;
 typedef struct Expression   Expr;
 typedef struct Call         Call;
+typedef struct Stmt         Stmt;
 
 extern Quad*            quads;
 extern unsigned         total;
@@ -49,6 +50,7 @@ enum expression_type_t {
 
     NIL_E
 };
+;
 
 struct Expression {
     enum expression_type_t  type;
@@ -63,6 +65,8 @@ struct Expression {
     // in case of boolexpr
     llist_t truelist;
     llist_t falselist;
+    llist_t test;
+    llist_t enter;
 
     struct Expression* next; // next
 };
@@ -109,6 +113,7 @@ SymTableEntry *new_temp(SymTable *t, int scope);
 Expr *make_call(SymTable *t, int scope, Expr *call, Expr *revelist);
 Expr *reverse_elist(Expr **elist);
 Expr *emit_if_table_item(SymTable *t, int scope, Expr *e);
+void make_stmt(Stmt *s);
 
 Call *function_call(unsigned char isMethod, char *name, int scope, Expr *elist);
 
