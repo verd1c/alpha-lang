@@ -34,7 +34,7 @@
         "IF_GREATER",    "CALL", "PARAM",
         "RET",   "GETRETVAL",  "FUNCSTART",
         "FUNCEND",    "TABLECREATE", 
-        "TABLEGETELEM",   "TABLESETELEM"
+        "TABLEGETELEM",   "TABLESETELEM", "JUMP"
     };
 
     char *_func_name;
@@ -71,6 +71,7 @@
 %token<strValue>    LEFT_BRACE RIGHT_BRACE LEFT_BRACKET RIGHT_BRACKET LEFT_PARENTHESIS RIGHT_PARENTHESIS SEMICOLON COMMA COLON DOUBLE_COLON DOT DOUBLE_DOT
 %token<strValue>    EQUALS PLUS MINUS MULT DIV MOD EQUALS_EQUALS NOT_EQUALS PLUS_PLUS MINUS_MINUS GREATER_THAN LESS_THAN GREATER_OR_EQUAL LESS_OR_EQUAL UMINUS
 
+%type<numValue>     M ifprefix
 %type<strValue>     member arg idlist 
 %type<exprValue>    expression lvalue funcstart const primary term assignexpr elist call funcdef
 %type<functionCall> normcall methodcall callsuffix
@@ -92,7 +93,7 @@
 
 program     :   statements
 
-statements  :   statements statement
+statements  :   statements {reset_temp_counter();} statement
                 |
                 ;
 
@@ -131,7 +132,7 @@ statement   :   expression SEMICOLON
                 ;
 
 expression  :   assignexpr                      {
-
+                                                    $$ = $1;
                                                 }
                 | expression PLUS expression    {
                                                     $$ = sym_expr(new_temp(symTable, scope));
@@ -153,165 +154,237 @@ expression  :   assignexpr                      {
                                                     $$ = sym_expr(new_temp(symTable, scope));
                                                     emit(MOD_I, $$, $1, $3, 0, yylineno);
                                                 }
-                | expression GREATER_THAN expression    {
+                | expression GREATER_THAN expression
+                    {
+                        $$ = expr(BOOLEXPR_E);
+                        $$->sym = new_temp(symTable, scope);
+                        $$->truelist = llist(next_quad());
+                        $$->falselist = llist(next_quad() + 1);
+                        emit(IF_GREATER_I, NULL, $1, $3, 0, yylineno);
+                        emit(JUMP_I, NULL, NULL, NULL, 0, yylineno);
+                    }
+                | expression GREATER_OR_EQUAL expression
+                    {
+                        $$ = expr(BOOLEXPR_E);
+                        $$->sym = new_temp(symTable, scope);
+                        $$->truelist = llist(next_quad());
+                        $$->falselist = llist(next_quad() + 1);
+                        emit(IF_GREATEREQ_I, NULL, $1, $3, 0, yylineno);
+                        emit(JUMP_I, NULL, NULL, NULL, 0, yylineno);
+                    }
+                | expression LESS_THAN expression
+                    {
+                        $$ = expr(BOOLEXPR_E);
+                        $$->sym = new_temp(symTable, scope);
+                        $$->truelist = llist(next_quad());
+                        $$->falselist = llist(next_quad() + 1);
+                        emit(IF_LESS_I, NULL, $1, $3, 0, yylineno);
+                        emit(JUMP_I, NULL, NULL, NULL, 0, yylineno);
+                    }
+                | expression LESS_OR_EQUAL expression
+                    {
+                        $$ = expr(BOOLEXPR_E);
+                        $$->sym = new_temp(symTable, scope);
+                        $$->truelist = llist(next_quad());
+                        $$->falselist = llist(next_quad() + 1);
+                        emit(IF_LESSEQ_I, NULL, $1, $3, 0, yylineno);
+                        emit(JUMP_I, NULL, NULL, NULL, 0, yylineno);
+                    }
+                | expression EQUALS_EQUALS expression
+                    {
 
-                                                }
-                | expression GREATER_OR_EQUAL expression    {
+                    }
+                | expression NOT_EQUALS expression    
+                    {
 
-                                                }
-                | expression LESS_THAN expression    {
-
-                                                }
-                | expression LESS_OR_EQUAL expression    {
-
-                                                }
-                | expression EQUALS_EQUALS expression    {
-
-                                                }
-                | expression NOT_EQUALS expression    {
-
-                                                }
-                | expression AND expression    {
-
-                                                }
-                | expression OR expression    {
-
-                                                }
-                | term  {
-                            $$ = $1;
-                        }
+                    }
+                | expression AND M expression
+                    {
+                        $$ = expr(BOOLEXPR_E);
+                        $$->sym = new_temp(symTable, scope);
+                        llist_patch($1->truelist, $3);
+                        $$->truelist = $4->truelist;
+                        $$->falselist = llist_merge($1->falselist, $4->falselist);
+                    }
+                | expression OR M expression
+                    {
+                        $$ = expr(BOOLEXPR_E);
+                        $$->sym = new_temp(symTable, scope);
+                        llist_patch($1->falselist, $3);
+                        $$->truelist = llist_merge($1->truelist, $4->truelist);
+                        $$->falselist = $4->falselist;
+                    }
+                | term  
+                    {
+                        $$ = $1;
+                    }
                 ;
 
-term        :   LEFT_PARENTHESIS expression RIGHT_PARENTHESIS
+M           : {$$ = next_quad();}
+
+term        :   LEFT_PARENTHESIS expression RIGHT_PARENTHESIS 
+                    {
+                        $$ = $2;
+                    }
                 | UMINUS expression
                 | NOT expression
-                | PLUS_PLUS lvalue {               
-                            SymTableEntry *e;
+                | PLUS_PLUS lvalue
+                    {            
+                        Expr *ex = (Expr*)0, *val = (Expr*)0;   
+                        SymTableEntry *e;
 
-                            // Check wether lvalue is a function
+                        // Check wether lvalue is a function
 
-                            if($2 && $2->sym && _further_checks){
-                                $$ = $2;
-                                e = $2->sym;
+                        if($2 && $2->sym && _further_checks){
+                            e = $2->sym;
+                            ex = $2;
 
-                                if(e->type == LOCAL_VAR || e->type == GLOBAL_VAR || e->type == ARGUMENT_VAR){
+                            if(e->type == LOCAL_VAR || e->type == GLOBAL_VAR || e->type == ARGUMENT_VAR){
 
-                                    // If it's a variable, check wether we have to create a new one or its referencing an existing one
-                                    if(!e->isActive){
-                                        //printf("Adding, I found it inactive on line %d %d\n", e->value.varValue->line, yylineno);
-                                        if(scope == 0){
-                                            $$ = sym_expr(insert(symTable, e->value.varValue->name, scope, yylineno, GLOBAL_VAR));
-                                        }else
-                                            $$ = sym_expr(insert(symTable, e->value.varValue->name, scope, yylineno, LOCAL_VAR));
-                                    }else if(!is_valid(stack, e, scope)){
-                                        if(e->value.varValue->scope != scope){
-                                            printf("input:%d: error: could not access variable %s\n", yylineno, e->value.varValue->name);
-                                        }
+                                // If it's a variable, check wether we have to create a new one or its referencing an existing one
+                                if(!e->isActive){
+                                    //printf("Adding, I found it inactive on line %d %d\n", e->value.varValue->line, yylineno);
+                                    if(scope == 0){
+                                        ex = sym_expr(insert(symTable, e->value.varValue->name, scope, yylineno, GLOBAL_VAR));
+                                    }else
+                                        ex = sym_expr(insert(symTable, e->value.varValue->name, scope, yylineno, LOCAL_VAR));
+                                }else if(!is_valid(stack, e, scope)){
+                                    if(e->value.varValue->scope != scope){
+                                        printf("input:%d: error: could not access variable %s\n", yylineno, e->value.varValue->name);
                                     }
-
-                                }else{
-                                    
-                                    // Functions can not be l-values
-                                    if(_func_lvalue_check) printf("input:%d: error: on function %s, functions cannot be l-values\n", yylineno, e->value.funcValue->name);
                                 }
+
+                            }else{
+                                
+                                // Functions can not be l-values
+                                if(_func_lvalue_check) printf("input:%d: error: on function %s, functions cannot be l-values\n", yylineno, e->value.funcValue->name);
+                            }
+
+                            if(ex->type == TABLEITEM_E){
+                                $$ = emit_if_table_item(symTable, scope, ex);
+                                emit(ADD_I, $$, $$, num_expr(1), 0, yylineno);
+                                emit(TABLESETELEM_I, $$, ex, ex->index, 0, yylineno);
+                            }else{
+                                emit(ADD_I, ex, ex, num_expr(1), 0, yylineno);
+                                $$ = expr(ARITHEXPR_E);
+                                $$->sym = new_temp(symTable, scope);
+                                emit(ASSIGN_I, $$, ex, NULL, 0, yylineno);
                             }
                         }
-                | lvalue PLUS_PLUS {               
-                            SymTableEntry *e;
+                    }
+                | lvalue PLUS_PLUS 
+                    {
+                        Expr *ex = (Expr*)0, *val = (Expr*)0;
+                        SymTableEntry *e;
 
-                            // Check wether lvalue is a function
+                        // Check wether lvalue is a function
 
-                            if($1 && $1->sym && _further_checks){
-                                $$ = $1;
-                                e = $1->sym;
+                        if($1 && $1->sym && _further_checks){
+                            e = $1->sym;
+                            ex = $1;
 
-                                if(e->type == LOCAL_VAR || e->type == GLOBAL_VAR || e->type == ARGUMENT_VAR){
+                            if(e->type == LOCAL_VAR || e->type == GLOBAL_VAR || e->type == ARGUMENT_VAR){
 
-                                    // If it's a variable, check wether we have to create a new one or its referencing an existing one
-                                    if(!e->isActive){
-                                        //printf("Adding, I found it inactive on line %d %d\n", e->value.varValue->line, yylineno);
-                                        if(scope == 0){
-                                            $$ = sym_expr(insert(symTable, e->value.varValue->name, scope, yylineno, GLOBAL_VAR));
-                                        }else
-                                            $$ = sym_expr(insert(symTable, e->value.varValue->name, scope, yylineno, LOCAL_VAR));
-                                    }else if(!is_valid(stack, e, scope)){
-                                        if(e->value.varValue->scope != scope){
-                                            printf("input:%d: error: could not access variable %s\n", yylineno, e->value.varValue->name);
-                                        }
+                                // If it's a variable, check wether we have to create a new one or its referencing an existing one
+                                if(!e->isActive){
+                                    //printf("Adding, I found it inactive on line %d %d\n", e->value.varValue->line, yylineno);
+                                    if(scope == 0){
+                                        ex = sym_expr(insert(symTable, e->value.varValue->name, scope, yylineno, GLOBAL_VAR));
+                                    }else
+                                        ex = sym_expr(insert(symTable, e->value.varValue->name, scope, yylineno, LOCAL_VAR));
+                                }else if(!is_valid(stack, e, scope)){
+                                    if(e->value.varValue->scope != scope){
+                                        printf("input:%d: error: could not access variable %s\n", yylineno, e->value.varValue->name);
                                     }
-
-                                }else{
-                                    
-                                    // Functions can not be l-values
-                                    if(_func_lvalue_check) printf("input:%d: error: on function %s, functions cannot be l-values\n", yylineno, e->value.funcValue->name);
                                 }
+
+                            }else{
+                                
+                                // Functions can not be l-values
+                                if(_func_lvalue_check) printf("input:%d: error: on function %s, functions cannot be l-values\n", yylineno, e->value.funcValue->name);
+                            }
+
+                            $$ = sym_expr(new_temp(symTable, scope));
+                            if(ex->type == TABLEITEM_E){
+                                val = emit_if_table_item(symTable, scope, ex);
+                                emit(ASSIGN_I, $$, val, NULL, 0, yylineno);
+                                emit(ADD_I, val, val, num_expr(1), 0, yylineno);
+                                emit(TABLESETELEM_I, val, ex, ex->index, 0, yylineno);
+                            }else{
+                                emit(ASSIGN_I, $$, ex, NULL, 0, yylineno);
+                                emit(ADD_I, ex, ex, num_expr(1), 0, yylineno);
                             }
                         }
-                | MINUS_MINUS lvalue {               
-                            SymTableEntry *e;
+                    }
+                | MINUS_MINUS lvalue 
+                    {               
+                        SymTableEntry *e;
 
-                            // Check wether lvalue is a function
+                        // Check wether lvalue is a function
 
-                            if($2 && $2->sym && _further_checks){
-                                $$ = $2;
-                                e = $2->sym;
+                        if($2 && $2->sym && _further_checks){
+                            $$ = $2;
+                            e = $2->sym;
 
-                                if(e->type == LOCAL_VAR || e->type == GLOBAL_VAR || e->type == ARGUMENT_VAR){
+                            if(e->type == LOCAL_VAR || e->type == GLOBAL_VAR || e->type == ARGUMENT_VAR){
 
-                                    // If it's a variable, check wether we have to create a new one or its referencing an existing one
-                                    if(!e->isActive){
-                                        //printf("Adding, I found it inactive on line %d %d\n", e->value.varValue->line, yylineno);
-                                        if(scope == 0){
-                                            $$ = sym_expr(insert(symTable, e->value.varValue->name, scope, yylineno, GLOBAL_VAR));
-                                        }else
-                                            $$ = sym_expr(insert(symTable, e->value.varValue->name, scope, yylineno, LOCAL_VAR));
-                                    }else if(!is_valid(stack, e, scope)){
-                                        if(e->value.varValue->scope != scope){
-                                            printf("input:%d: error: could not access variable %s\n", yylineno, e->value.varValue->name);
-                                        }
+                                // If it's a variable, check wether we have to create a new one or its referencing an existing one
+                                if(!e->isActive){
+                                    //printf("Adding, I found it inactive on line %d %d\n", e->value.varValue->line, yylineno);
+                                    if(scope == 0){
+                                        $$ = sym_expr(insert(symTable, e->value.varValue->name, scope, yylineno, GLOBAL_VAR));
+                                    }else
+                                        $$ = sym_expr(insert(symTable, e->value.varValue->name, scope, yylineno, LOCAL_VAR));
+                                }else if(!is_valid(stack, e, scope)){
+                                    if(e->value.varValue->scope != scope){
+                                        printf("input:%d: error: could not access variable %s\n", yylineno, e->value.varValue->name);
                                     }
-
-                                }else{
-                                    
-                                    // Functions can not be l-values
-                                    if(_func_lvalue_check) printf("input:%d: error: on function %s, functions cannot be l-values\n", yylineno, e->value.funcValue->name);
                                 }
+
+                            }else{
+                                
+                                // Functions can not be l-values
+                                if(_func_lvalue_check) printf("input:%d: error: on function %s, functions cannot be l-values\n", yylineno, e->value.funcValue->name);
                             }
                         }
-                | lvalue MINUS_MINUS {               
-                            SymTableEntry *e;
+                    }
+                | lvalue MINUS_MINUS 
+                    {               
+                        SymTableEntry *e;
 
-                            // Check wether lvalue is a function
+                        // Check wether lvalue is a function
 
-                            if($1 && $1->sym && _further_checks){
-                                $$ = $1;
-                                e = $1->sym;
+                        if($1 && $1->sym && _further_checks){
+                            $$ = $1;
+                            e = $1->sym;
 
-                                if(e->type == LOCAL_VAR || e->type == GLOBAL_VAR || e->type == ARGUMENT_VAR){
+                            if(e->type == LOCAL_VAR || e->type == GLOBAL_VAR || e->type == ARGUMENT_VAR){
 
-                                    // If it's a variable, check wether we have to create a new one or its referencing an existing one
-                                    if(!e->isActive){
-                                        //printf("Adding, I found it inactive on line %d %d\n", e->value.varValue->line, yylineno);
-                                        if(scope == 0){
-                                            $$ = sym_expr(insert(symTable, e->value.varValue->name, scope, yylineno, GLOBAL_VAR));
-                                        }else
-                                            $$ = sym_expr(insert(symTable, e->value.varValue->name, scope, yylineno, LOCAL_VAR));
-                                    }else if(!is_valid(stack, e, scope)){
-                                        if(e->value.varValue->scope != scope){
-                                            printf("input:%d: error: could not access variable %s\n", yylineno, e->value.varValue->name);
-                                        }
+                                // If it's a variable, check wether we have to create a new one or its referencing an existing one
+                                if(!e->isActive){
+                                    //printf("Adding, I found it inactive on line %d %d\n", e->value.varValue->line, yylineno);
+                                    if(scope == 0){
+                                        $$ = sym_expr(insert(symTable, e->value.varValue->name, scope, yylineno, GLOBAL_VAR));
+                                    }else
+                                        $$ = sym_expr(insert(symTable, e->value.varValue->name, scope, yylineno, LOCAL_VAR));
+                                }else if(!is_valid(stack, e, scope)){
+                                    if(e->value.varValue->scope != scope){
+                                        printf("input:%d: error: could not access variable %s\n", yylineno, e->value.varValue->name);
                                     }
-
-                                }else{
-                                    
-                                    // Functions can not be l-values
-                                    if(_func_lvalue_check) printf("input:%d: error: on function %s, functions cannot be l-values\n", yylineno, e->value.funcValue->name);
                                 }
+
+                            }else{
+                                
+                                // Functions can not be l-values
+                                if(_func_lvalue_check) printf("input:%d: error: on function %s, functions cannot be l-values\n", yylineno, e->value.funcValue->name);
                             }
                         }
-                | primary   {
-                                $$ = $1;
-                            }
+                    }
+                | primary   
+                    {   
+                        printf("term -> primary\n");
+                        $$ = $1;
+                    }
                 ;
 
 assignexpr  :   lvalue 
@@ -347,7 +420,22 @@ assignexpr  :   lvalue
                             }
                         }
 EQUALS expression   {
-                        emit(ASSIGN_I, $1, $4, NULL, 0, yylineno);
+
+                        mk_bool_vmasm($4);
+
+                        if($1->type == TABLEITEM_E){
+                            emit(TABLESETELEM_I, $1, $1->index, $4, 0, yylineno);
+                            //emit(TABLESETELEM_I, $4, $1, $1->index, 0, yylineno);
+
+                            $$ = emit_if_table_item(symTable, scope, $1);
+                            $$->type = ASSIGNEXPR_E;
+                        }else{
+                            emit(ASSIGN_I, $1, $4, NULL, 0, yylineno);
+                            $$ = sym_expr(new_temp(symTable, scope));
+
+                            // second emit
+                            emit(ASSIGN_I, $$, $1, NULL, 0, yylineno);
+                        }
                     }
 
 primary     :   lvalue  {               
@@ -376,12 +464,23 @@ primary     :   lvalue  {
 
                                 }
                             }
+
+                            $$ = emit_if_table_item(symTable, scope, $1);
                         }
-                | call {$$ = $1;}
+                | call 
+                    {
+                        $$ = $1;
+                    }
                 | objectdef
-                | LEFT_PARENTHESIS funcdef RIGHT_PARENTHESIS {$$ = $2;}
-                | const {
+                | LEFT_PARENTHESIS funcdef RIGHT_PARENTHESIS 
+                    {
+                        $$ = $2;
+                    }
+                | const {   
+                            Expr *c = $1;
                             $$ = $1;
+                            if(c->type == CONSTSTRING_E)
+                                printf("strVal : %s\n", c->strConst);
                         }
                 ;
 
@@ -442,12 +541,28 @@ lvalue      :   ID                          {
                                                 _func_lvalue_check = 1;
                                             }
                 | member                    {
-                                            _func_lvalue_check = 0;}
+                                                _func_lvalue_check = 0;
+                                                $$ = $1;
+                                            }
                 ;
 
-member      :   lvalue DOT ID   {}
-                | lvalue LEFT_BRACE expression RIGHT_BRACE  {}
-                | call DOT ID 
+member      :   lvalue DOT ID   {
+                                    $$ = member_expr(symTable, scope, $1, $3);
+                                }
+                | lvalue LEFT_BRACE expression RIGHT_BRACE  
+                    {
+                        Expr *res;
+
+                        $1 = emit_if_table_item(symTable, scope, $1);
+                        res = expr(TABLEITEM_E);
+                        res->sym = $1->sym;
+                        res->index = $3;
+                        $$ = res;
+                    }
+                | call DOT ID   
+                    {
+                        
+                    }
                 | call LEFT_BRACE expression RIGHT_BRACE
                 ;
 
@@ -521,6 +636,9 @@ elist       :   expression                  {
                                                 $$ = head;
                                             }
                 |
+                    {
+                        $$ = nil_expr();
+                    }
                 ;
         
 objectdef   :    LEFT_BRACE elist RIGHT_BRACE
@@ -615,7 +733,7 @@ funcstart   :   FUNCTION ID {
 const       :   NUM         {
                                 $<exprValue>$ = num_expr($1);
                             }
-                | STRING    {
+                | STRING    {   
                                 $$ = string_expr($1);
                             }
                 | NIL       {
@@ -649,11 +767,21 @@ arg         :   ID  {
                         }                         
                     }
 
-ifstmt      :   ifstart expression RIGHT_PARENTHESIS statement
-                | ifstart expression RIGHT_PARENTHESIS statement ELSE statement
+ifstmt      :   ifprefix statement  
+                    {
+                        patch_label($1, next_quad());
+                    }
+                | ifprefix statement ELSE statement
                 ;
 
-ifstart     :   IF LEFT_PARENTHESIS { _in_control++; printf("line: %d: if statement\n", yylineno); }
+ifprefix    :   IF LEFT_PARENTHESIS { _in_control++; } expression RIGHT_PARENTHESIS
+                    {
+                        mk_bool_vmasm($4);
+
+                        emit(IF_EQ_I, NULL, $4, num_expr(1), next_quad() + 2, yylineno);
+                        $$ = next_quad();
+                        emit(JUMP_I, NULL, NULL, NULL, 0, yylineno);
+                    }
 
 whilestmt   :   whilestart expression RIGHT_PARENTHESIS statement
 
@@ -664,7 +792,13 @@ forstmt     :   forstart elist SEMICOLON expression SEMICOLON elist RIGHT_PARENT
 forstart    :   FOR LEFT_PARENTHESIS { _in_control++; printf("line: %d: for statement\n", yylineno);} 
 
 returnstmt  :   RETURN SEMICOLON
+                    {
+                        emit(RET_I, NULL, NULL, NULL, 0, yylineno);
+                    }
                 | RETURN expression SEMICOLON
+                    {
+                        emit(RET_I, $2, NULL, NULL, 0, yylineno);
+                    }
                 ;
 
 
@@ -740,79 +874,6 @@ void printByScope(SymTable *symTable){
     }
 
     return;
-}
-
-void printQuads(void){
-    Quad q;
-    Expr *e;
-    int i;
-
-    printf("-------------------------------\n");
-    printf("Printing Quads\n");
-    printf("-------------------------------\n");
-    for(i = 0; i < currQuad; i++){
-        q = quads[i];
-        printf("%-10s ", opcodeToString[q.op]);
-
-        // print result
-        e = q.result;
-        if(e){
-            if(e->type == CONSTNUM_E){
-                printf(" %-3f ", e->numConst);
-            }else if(e->type == CONSTBOOL_E){
-                if(e->boolConst == 0)
-                    printf(" %-5s ", "false");
-                else
-                    printf(" %-5s ", "true");
-            }else{
-                if(e->sym->type == LOCAL_VAR || e->sym->type == GLOBAL_VAR || e->sym->type == ARGUMENT_VAR)
-                    printf(" %-10s ", e->sym->value.varValue->name);
-                else
-                    printf(" %-10s ", e->sym->value.funcValue->name);
-            }
-        }
-
-        // print arg1
-        e = q.arg1;
-        if(e){
-            if(e->type == CONSTNUM_E){
-                printf(" %-3f ", e->numConst);
-            }else if(e->type == CONSTBOOL_E){
-                if(e->boolConst == 0)
-                    printf(" %-5s ", "false");
-                else
-                    printf(" %-5s ", "true");
-            }else{
-                if(e->sym->type == LOCAL_VAR || e->sym->type == GLOBAL_VAR || e->sym->type == ARGUMENT_VAR)
-                    printf(" %-10s ", e->sym->value.varValue->name);
-                else
-                    printf(" %-10s ", e->sym->value.funcValue->name);
-            }
-        }
-
-        // print arg2
-        e = q.arg2;
-        if(e){
-            if(e->type == CONSTNUM_E){
-                printf(" %-3f ", e->numConst);
-            }else if(e->type == CONSTBOOL_E){
-                if(e->boolConst == 0)
-                    printf(" %-5s ", "false");
-                else
-                    printf(" %-5s ", "true");
-            }else{
-                if(e->sym->type == LOCAL_VAR || e->sym->type == GLOBAL_VAR || e->sym->type == ARGUMENT_VAR)
-                    printf(" %-10s ", e->sym->value.varValue->name);
-                else
-                    printf(" %-10s ", e->sym->value.funcValue->name);
-            }
-        }
-
-        printf("\n");
-    }
-
-
-
 }
 
 int main(int argc, char **argv){

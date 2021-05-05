@@ -535,13 +535,14 @@ char *typeToStringA[] = {
     };
 
 void printCallStack(CallStack *s, int line){
+    int i;
     SymTableEntry *e;
     printf("---------------------------------------------------\nSTACK AT LINE %d\n", line);
     printf("Size: %d\n", s->size);
     printf("Top: %d\n", s->top);
     if(s->top == -1)
         printf("Stack is empty\n");
-    for(int i = s->size - 1; i >= s->top; i--){
+    for(i = s->size - 1; i >= s->top; i--){
         e = s->stack[i];
         if(e->type == LOCAL_VAR || e->type == GLOBAL_VAR || e->type == ARGUMENT_VAR){
             printf("SymTableEntry [%-20s] [%-4d] [%-5d] [%-10s]\n", e->value.varValue->name, e->value.varValue->line, e->value.varValue->scope, typeToStringA[e->type]);

@@ -73,6 +73,10 @@ multiline_comment	"/""*"
     return NUM;
 }
 
+"-"{intconst}|"-"{intconst}\.{intconst} {
+	
+}
+
 {ident} {
     yylval.strValue = strdup(yytext);
     return ID;
