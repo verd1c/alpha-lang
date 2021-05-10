@@ -50,7 +50,6 @@ enum expression_type_t {
 
     NIL_E
 };
-;
 
 struct Expression {
     enum expression_type_t  type;
@@ -93,11 +92,12 @@ struct Stmt {
 };
 
 // VM ASM creation
-int mk_bool_vmasm(Expr *e);
 unsigned next_quad(void);
 int is_arith(Expr *e);
 void init_quads(void);
 void emit(enum iopcode_t op, Expr* result, Expr* arg1, Expr* arg2, unsigned label, unsigned line);
+int mk_bool_vmasm(Expr *e);
+int mk_nbe_vmasm(Expr *e);
 
 // Expression creation
 Expr *expr(enum expression_type_t  type);
@@ -113,7 +113,6 @@ SymTableEntry *new_temp(SymTable *t, int scope);
 Expr *make_call(SymTable *t, int scope, Expr *call, Expr *revelist);
 Expr *reverse_elist(Expr **elist);
 Expr *emit_if_table_item(SymTable *t, int scope, Expr *e);
-void make_stmt(Stmt *s);
 
 Call *function_call(unsigned char isMethod, char *name, int scope, Expr *elist);
 
@@ -122,6 +121,7 @@ llist_t llist_merge(llist_t l1, llist_t l2);
 void llist_patch(llist_t list, int label);
 void patch_label(unsigned quad, unsigned label);
 
+Stmt *stmt(void);
 void print_call(Call *c);
 void print_expression(Expr *e);
 

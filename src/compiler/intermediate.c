@@ -6,44 +6,38 @@
 #include <stddef.h>
 #include <string.h>
 
-int is_arith(Expr *e)
-{
-	if (e->type == CONSTBOOL_E ||
-		e->type == CONSTSTRING_E ||
-		e->type == NIL_E ||
-		e->type == NEWTABLE_E ||
-		e->type == PROGRAMFUNC_E ||
-		e->type == LIBRARYFUNC_E ||
-		e->type == BOOLEXPR_E)
-	{
-		return 0;
+int is_arith(Expr *e){
+	if(	e->type == CONSTBOOL_E 		||
+		e->type == CONSTSTRING_E	||
+		e->type == NIL_E			||
+		e->type == NEWTABLE_E		||
+		e->type == PROGRAMFUNC_E	||
+		e->type == LIBRARYFUNC_E	||
+		e->type == BOOLEXPR_E){
+			return 0;
 	}
 }
 
-unsigned next_quad(void)
-{
+unsigned next_quad(void){
 	return currQuad;
 }
 
-void init_quads(void)
-{
-	quads = (Quad *)0;
-	total = 0;
-	currQuad = 0;
+void init_quads(void) {
+	quads = (Quad*)0;
+	total = 1;
+	currQuad = 1;
 
 	return;
 }
 
-void expand(void)
-{
+void expand(void) {
 
 	// expand should only be called when full
 	assert(total == currQuad);
 
-	Quad *p = (Quad *)malloc(NEW_SIZE);
+	Quad* p = (Quad*)malloc(NEW_SIZE);
 	memset(p, 0, NEW_SIZE);
-	if (quads)
-	{
+	if (quads) {
 		memcpy(p, quads, CURR_SIZE);
 		free(quads);
 	}
@@ -54,18 +48,17 @@ void expand(void)
 }
 
 void emit(
-	enum iopcode_t op,
-	Expr *result,
-	Expr *arg1,
-	Expr *arg2,
-	unsigned label,
-	unsigned line)
-{
+	enum iopcode_t	op,
+	Expr* result,
+	Expr* arg1,
+	Expr* arg2,
+	unsigned		label,
+	unsigned		line) {
 
 	if (currQuad == total)
 		expand();
 
-	Quad *p = quads + currQuad++;
+	Quad* p = quads + currQuad++;
 	p->op = op;
 	p->result = result;
 	p->arg1 = arg1;
@@ -76,13 +69,12 @@ void emit(
 	return;
 }
 
-// create string const expr
-Expr *string_expr(char *str)
-{
-	Expr *expr = (Expr *)malloc(sizeof(Expr));
 
-	if (!expr)
-	{
+// create string const expr
+Expr* string_expr(char* str) {
+	Expr* expr = (Expr*)malloc(sizeof(Expr));
+
+	if (!expr) {
 		alpha_message(stdout, MEMORY_ERROR, "malloc");
 		exit(0);
 	}
@@ -95,12 +87,10 @@ Expr *string_expr(char *str)
 	return expr;
 }
 
-Expr *nil_expr(void)
-{
+Expr *nil_expr(void) {
 	Expr *expr = (Expr *)malloc(sizeof(Expr));
 
-	if (!expr)
-	{
+	if (!expr) {
 		alpha_message(stdout, MEMORY_ERROR, "malloc");
 		exit(0);
 	}
@@ -112,14 +102,12 @@ Expr *nil_expr(void)
 	return expr;
 }
 
-Expr *bool_expr(unsigned char bool)
-{
-	Expr *expr = (Expr *)malloc(sizeof(Expr));
+Expr* bool_expr(unsigned char bool) {
+	Expr* expr = (Expr*)malloc(sizeof(Expr));
 
 	assert(bool == 0 || bool == 1);
 
-	if (!expr)
-	{
+	if (!expr) {
 		alpha_message(stdout, MEMORY_ERROR, "malloc");
 		exit(0);
 	}
@@ -132,12 +120,10 @@ Expr *bool_expr(unsigned char bool)
 	return expr;
 }
 
-Expr *num_expr(double num)
-{
+Expr *num_expr(double num) {
 	Expr *expr = (Expr *)malloc(sizeof(Expr));
 
-	if (!expr)
-	{
+	if (!expr) {
 		alpha_message(stdout, MEMORY_ERROR, "malloc");
 		exit(0);
 	}
@@ -150,9 +136,8 @@ Expr *num_expr(double num)
 	return expr;
 }
 
-Expr *sym_expr(SymTableEntry *e)
-{
-	Expr *expr = (Expr *)malloc(sizeof(Expr));
+Expr* sym_expr(SymTableEntry *e){
+	Expr *expr = (Expr*)malloc(sizeof(Expr));
 
 	memset(expr, 0, sizeof(Expr));
 
@@ -162,25 +147,17 @@ Expr *sym_expr(SymTableEntry *e)
 	return expr;
 }
 
-void make_stmt(Stmt *s)
-{
-	s->breaklist = 0;
-	s->contlist = 0;
-}
 
 /**/
-void reset_temp_counter(void)
-{
+void reset_temp_counter(void) {
 	_temp_counter = 0;
 }
 
-char *new_temp_name(void)
-{
-	char *name;
-	name = (char *)malloc(10 * sizeof(char));
+char* new_temp_name(void) {
+	char* name;
+	name = (char*)malloc(10 * sizeof(char));
 
-	if (!name)
-	{
+	if (!name) {
 		alpha_message(stdout, MEMORY_ERROR, "malloc");
 		exit(0);
 	}
@@ -189,12 +166,12 @@ char *new_temp_name(void)
 	return name;
 }
 
+
 // (x = (i + (1 + c)));
 //             ^1
 //           ^2
 
-SymTableEntry *new_temp(SymTable *t, int scope)
-{
+SymTableEntry* new_temp(SymTable* t, int scope) {
 	SymTableEntry *e;
 	char *t_name;
 
@@ -211,8 +188,7 @@ SymTableEntry *new_temp(SymTable *t, int scope)
 Call *function_call(unsigned char isMethod,
 					char *name,
 					int scope,
-					Expr *elist)
-{
+					Expr *elist){
 	Call *call = (Call *)malloc(sizeof(Call));
 	assert(call);
 	call->isMethod = isMethod;
@@ -222,15 +198,13 @@ Call *function_call(unsigned char isMethod,
 	return call;
 }
 
-Expr *make_call(SymTable *t, int scope, Expr *call, Expr *revelist)
-{
+
+Expr *make_call(SymTable* t, int scope, Expr *call, Expr *revelist) {
 	Expr *iter, *res;
 
-	if (revelist->type != NIL_E)
-	{
+	if (revelist->type != NIL_E) {
 		iter = revelist;
-		while (iter)
-		{
+		while (iter) {
 			emit(PARAM_I, NULL, iter, NULL, 0, 0);
 			iter = iter->next;
 		}
@@ -242,13 +216,11 @@ Expr *make_call(SymTable *t, int scope, Expr *call, Expr *revelist)
 	return res;
 }
 
-Expr *reverse_elist(Expr **elist)
-{
+Expr *reverse_elist(Expr **elist) {
 	Expr *prev = NULL, *cur = NULL, *next = NULL;
 
 	cur = *elist;
-	while (cur)
-	{
+	while (cur) {
 		next = cur->next;
 		cur->next = prev;
 
@@ -259,8 +231,7 @@ Expr *reverse_elist(Expr **elist)
 	return *elist;
 }
 
-Expr *emit_if_table_item(SymTable *t, int scope, Expr *e)
-{
+Expr *emit_if_table_item(SymTable *t, int scope, Expr *e) {
 	Expr *result;
 
 	if (e->type != TABLEITEM_E)
@@ -271,14 +242,12 @@ Expr *emit_if_table_item(SymTable *t, int scope, Expr *e)
 	return result;
 }
 
-Expr *expr(enum expression_type_t type)
-{
+Expr *expr(enum expression_type_t  type) {
 	Expr *e;
 
 	e = (Expr *)malloc(sizeof(Expr));
 
-	if (!e)
-	{
+	if (!e) {
 		alpha_message(stdout, MEMORY_ERROR, "malloc");
 		exit(0);
 	}
@@ -290,10 +259,9 @@ Expr *expr(enum expression_type_t type)
 	return e;
 }
 
-Expr *member_expr(SymTable *t, int scope, Expr *lvalue, char *name)
-{
+Expr *member_expr(SymTable *t, int scope, Expr *lvalue, char *name) {
 	Expr *ti;
-
+	
 	lvalue = emit_if_table_item(t, scope, lvalue);
 	ti = expr(TABLEITEM_E);
 	ti->sym = lvalue->sym;
@@ -301,29 +269,20 @@ Expr *member_expr(SymTable *t, int scope, Expr *lvalue, char *name)
 	return ti;
 }
 
-llist_t llist(int i)
-{
-	quads[i].label = 0;
+llist_t llist(int i){
 	return i;
 }
 
-llist_t llist_merge(llist_t l1, llist_t l2)
-{
+llist_t llist_merge(llist_t l1, llist_t l2){
 	llist_t iter;
 
-	if (!l1)
-	{
+	if(!l1){
 		return l2;
-	}
-	else if (!l2)
-	{
+	}else if(!l2){
 		return l1;
-	}
-	else
-	{
+	}else{
 		iter = l1;
-		while (quads[iter].label)
-		{
+		while(quads[iter].label){
 			iter = quads[iter].label;
 		}
 		quads[iter].label = l2;
@@ -331,16 +290,13 @@ llist_t llist_merge(llist_t l1, llist_t l2)
 	}
 }
 
-void patch_label(unsigned quad, unsigned label)
-{
+void patch_label(unsigned quad, unsigned label){
 	quads[quad].label = label;
 }
 
-void llist_patch(llist_t list, int label)
-{
+void llist_patch(llist_t list, int label){
 	llist_t next;
-	while (list)
-	{
+	while(list){
 		next = quads[list].label;
 		quads[list].label = label;
 		list = next;
@@ -348,32 +304,22 @@ void llist_patch(llist_t list, int label)
 	return;
 }
 
-void print_expression(Expr *e)
-{
-	if (e)
-	{
-		if (e->type == CONSTNUM_E)
-		{
+void print_expression(Expr *e){
+	if(e){
+		if(e->type == CONSTNUM_E){
 			printf(" %-3f ", e->numConst);
-		}
-		else if (e->type == CONSTBOOL_E)
-		{
-			if (e->boolConst == 0)
+		}else if(e->type == CONSTBOOL_E){
+			if(e->boolConst == 0)
 				printf(" %-5s ", "false");
 			else
 				printf(" %-5s ", "true");
-		}
-		else if (e->type == CONSTSTRING_E)
-		{
+		}else if(e->type == CONSTSTRING_E){
 			printf(" %-13s ", e->strConst);
-		}
-		else if (e->type == NIL_E)
-		{
+		}else if(e->type == NIL_E){
 			printf(" NIL ");
 		}
-		else
-		{
-			if (e->sym->type == LOCAL_VAR || e->sym->type == GLOBAL_VAR || e->sym->type == ARGUMENT_VAR)
+		else {
+			if(e->sym->type == LOCAL_VAR || e->sym->type == GLOBAL_VAR || e->sym->type == ARGUMENT_VAR)
 				printf(" %-13s ", e->sym->value.varValue->name);
 			else
 				printf(" %-13s ", e->sym->value.funcValue->name);
@@ -382,10 +328,8 @@ void print_expression(Expr *e)
 	return;
 }
 
-int mk_bool_vmasm(Expr *e)
-{
-	if (e->type == BOOLEXPR_E)
-	{
+int mk_bool_vmasm(Expr *e){
+	if(e->type == BOOLEXPR_E){
 
 		// build case of true
 		llist_patch(e->truelist, next_quad());
@@ -397,62 +341,85 @@ int mk_bool_vmasm(Expr *e)
 		emit(ASSIGN_I, e, bool_expr(0), NULL, 0, yylineno);
 
 		return 1;
-	}
-	else
-	{
+	}else{
 		return 0;
 	}
 }
 
-void print_call(Call *c)
-{
+int mk_nbe_vmasm(enum iopcode_t	op, Expr *e){
+	if(e->type != BOOLEXPR_E){
+		e->truelist = llist(next_quad());
+		e->falselist = llist(next_quad() + 1);
+		emit(IF_EQ_I, NULL, e, bool_expr(1), 0, yylineno);
+		emit(JUMP_I, NULL, NULL, NULL, 0, yylineno);
+		
+		if(op == AND_I)
+			llist_patch(e->truelist, next_quad());
+		else if(op == OR_I)
+			llist_patch(e->falselist, next_quad());
+
+		return 1;
+	}else{
+		return 0;
+	}
+}
+
+Stmt *stmt(void){
+	Stmt *statement = (Stmt*)malloc(sizeof(Stmt));
+	statement->breaklist = 0;
+	statement->contlist = 0;
+	return statement;
+}
+
+
+
+
+
+
+
+
+void print_call(Call *c) {
 	printf("Call [%d] [%-10s] [%-3d]\n", c->isMethod, c->name, c->scope);
 }
 
-char *opcodeToStrin_g[] = {
-	"ASSIGN", "ADD", "SUB",
-	"MUL", "DIV", "MOD",
-	"UMINUS", "AND", "OR",
-	"NOT", "IF_EQ", "IF_NOTEQ",
-	"IF_LESSEQ", "IF_GREATEREQ", "IF_LESS",
-	"IF_GREATER", "CALL", "PARAM",
-	"RET", "GETRETVAL", "FUNCSTART",
-	"FUNCEND", "TABLECREATE",
-	"TABLEGETELEM", "TABLESETELEM", "JUMP"};
+ char *opcodeToStrin_g[] =  {
+        "ASSIGN",  "ADD",    "SUB",
+        "MUL",    "DIV",    "MOD",
+        "UMINUS", "AND",    "OR",
+        "NOT",    "IF_EQ",  "IF_NOTEQ",
+        "IF_LESSEQ",  "IF_GREATEREQ",   "IF_LESS",
+        "IF_GREATER",    "CALL", "PARAM",
+        "RET",   "GETRETVAL",  "FUNCSTART",
+        "FUNCEND",    "TABLECREATE", 
+        "TABLEGETELEM",   "TABLESETELEM", "JUMP"
+    };
 
-void printQuads(void)
-{
-	Quad q;
-	Expr *e;
-	int i;
+void printQuads(void){
+    Quad q;
+    Expr *e;
+    int i;
 
-	printf("-------------------------------\n");
-	printf("[#]\n");
-	printf("-------------------------------\n");
-	for (i = 0; i < currQuad; i++)
-	{
-		q = quads[i];
-		printf(" %-3d: %-13s ", i, opcodeToStrin_g[q.op]);
+    printf("-------------------------------\n");
+    printf("[#]\n");
+    printf("-------------------------------\n");
+    for(i = 1; i < currQuad; i++){
+        q = quads[i];
+        printf(" %-3d: %-13s ", i, opcodeToStrin_g[q.op]);
 
-		// print result
-		if (q.op == JUMP_I)
-		{
-			printf(" %-3d ", q.label);
-		}
-		else if (q.op == IF_LESS_I || q.op == IF_GREATER_I || q.op == IF_LESSEQ_I || q.op == IF_GREATEREQ_I || q.op == IF_NOTEQ_I || q.op == IF_EQ_I)
-		{
-			print_expression(q.result);
-			print_expression(q.arg1);
-			print_expression(q.arg2);
-			printf(" %-3d ", q.label);
-		}
-		else
-		{
-			print_expression(q.result);
-			print_expression(q.arg1);
-			print_expression(q.arg2);
-		}
+        // print result
+        if(q.op == JUMP_I){
+            printf(" %-3d ", q.label);
+        }else if(q.op == IF_LESS_I || q.op == IF_GREATER_I || q.op == IF_LESSEQ_I || q.op == IF_GREATEREQ_I || q.op == IF_NOTEQ_I || q.op == IF_EQ_I){
+            print_expression(q.result);
+            print_expression(q.arg1);
+            print_expression(q.arg2);
+            printf(" %-3d ", q.label);
+        }else{
+            print_expression(q.result);
+            print_expression(q.arg1);
+            print_expression(q.arg2);
+        }
 
-		printf("\n");
-	}
+        printf("\n");
+    }
 }

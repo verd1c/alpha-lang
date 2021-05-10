@@ -8,6 +8,7 @@
     #include "symbol_table.h"
     #include "intermediate.h"
     #include "tools.h"
+    #include "stack.h"
 
     int yylex (void);
     int yyerror (char* yaccProvidedMessage);
@@ -43,7 +44,6 @@
     int _further_checks = 0;
     int _func_lvalue_check = 0;
     int _in_control = 0;
-    int _in_control_loop = 0;
     long _temp_counter = 0;
 
     int scope;
@@ -52,6 +52,8 @@
     extern FILE *yyin;
     SymTable *symTable;
     CallStack *stack;
+
+
 %}
 
 %start program
@@ -60,21 +62,23 @@
     char*   strValue;
     double  numValue;
 
-    struct SymTableEntry   *symValue;
-    struct Expression      *exprValue;
+    struct SymTableEntry    *symValue;
+    struct Expression       *exprValue;
+    struct Stmt             *stmtValue;
 
-    struct Call            *functionCall;
+    struct Call             *functionCall;
 }
 
 %token<numValue>    NUM
-%token<strValue>    ID STRING 
+%token<strValue>    ID STRING
 %token<strValue>    IF ELSE WHILE FOR FUNCTION RETURN BREAK CONTINUE AND NOT OR LOCAL TRUE FALSE NIL
 %token<strValue>    LEFT_BRACE RIGHT_BRACE LEFT_BRACKET RIGHT_BRACKET LEFT_PARENTHESIS RIGHT_PARENTHESIS SEMICOLON COMMA COLON DOUBLE_COLON DOT DOUBLE_DOT
 %token<strValue>    EQUALS PLUS MINUS MULT DIV MOD EQUALS_EQUALS NOT_EQUALS PLUS_PLUS MINUS_MINUS GREATER_THAN LESS_THAN GREATER_OR_EQUAL LESS_OR_EQUAL UMINUS
 
-%type<numValue>      idlist N M  forprefix arg  whilecond loopstmt returnstmt
-%type<strValue>     member 
-%type<exprValue>    expression lvalue funcstart const primary term assignexpr elist call funcdef whilestmt whilestart objectdef statement ifprefix  ifstmt forstmt  block blockstart blockend 
+%type<numValue>     M N ifprefix whilestart whilecond
+%type<stmtValue>    statement statements forstmt returnstmt whilestmt ifstmt block blockstmt
+%type<strValue>     member arg idlist 
+%type<exprValue>    expression lvalue funcstart const primary term assignexpr elist call funcdef forprefix
 %type<functionCall> normcall methodcall callsuffix
 
 %right EQUALS
@@ -95,15 +99,36 @@
 program     :   statements
 
 statements  :   statements {reset_temp_counter();} statement
-                |
+                    {
+                        $$ = stmt();
+                        $$->breaklist = llist_merge($1->breaklist, $3->breaklist);
+                        $$->contlist = llist_merge($1->contlist, $3->contlist);
+                    }
+                | statement 
+                    {
+                        $$ = stmt();
+                        $$->contlist = $1->contlist;
+                        $$->breaklist = $1->breaklist;
+                    }
                 ;
 
 statement   :   expression SEMICOLON
-                | ifstmt    
-                | whilestmt  {$$ = $1;}
-                | forstmt  
+                    {
+                        $$ = stmt();
+                    }
+                | ifstmt
+                    {
+                        $$ = $1;
+                    }
+                | whilestmt
+                    {
+                        $$ = $1;
+                    }
+                | forstmt
+                    {
+                        $$ = $1;
+                    }
                 | returnstmt            {
-                                             $$ = $1;
                                             if(scope==0 && _in_control==0){
                                                 printf("input:%d: error:  Return outside of scope \n", yylineno);
                                             }else{
@@ -111,6 +136,7 @@ statement   :   expression SEMICOLON
                                                 if(_func_count>0 && _in_control >0) _in_control--;
                                                 else _in_control=0;
                                             }
+                                            $$ = $1;
                                         }
 
                 | BREAK SEMICOLON       {
@@ -119,10 +145,9 @@ statement   :   expression SEMICOLON
                                             }else{
                                                 if(_in_control>0)  _in_control--;
                                             }
-                                            make_stmt(&$$);
-                                            $$->breaklist=llist(next_quad());
+                                            $$ = stmt();
+                                            $$->breaklist = next_quad();
                                             emit(JUMP_I, NULL, NULL, NULL, 0, yylineno);
-
                                         }      
                 | CONTINUE SEMICOLON    { 
                                             if(scope==0 && _in_control==0){
@@ -131,13 +156,22 @@ statement   :   expression SEMICOLON
                                             }else{
                                                 if(_in_control>0)  _in_control--;
                                             }
-                                            make_stmt(&$$);
-                                            $$->contlist=llist(next_quad());
+                                            $$ = stmt();
+                                            $$->contlist = next_quad();
                                             emit(JUMP_I, NULL, NULL, NULL, 0, yylineno);
                                         }
-                | block {$$ = $1;}
-                | funcdef {$$ = $1;}
-                | SEMICOLON {$$ = $1;}
+                | block
+                    {
+                        $$ = $1;
+                    }
+                | funcdef
+                    {
+                        $$ = stmt();
+                    }
+                | SEMICOLON
+                    {
+                        $$ = stmt();
+                    }
                 ;
 
 expression  :   assignexpr                      {
@@ -201,27 +235,59 @@ expression  :   assignexpr                      {
                     }
                 | expression EQUALS_EQUALS expression
                     {
-
+                        $$ = expr(BOOLEXPR_E);
+                        $$->sym = new_temp(symTable, scope);
+                        $$->truelist = llist(next_quad());
+                        $$->falselist = llist(next_quad() + 1);
+                        emit(IF_EQ_I, NULL, $1, $3, 0, yylineno);
+                        emit(JUMP_I, NULL, NULL, NULL, 0, yylineno);
                     }
                 | expression NOT_EQUALS expression    
                     {
+                        $$ = expr(BOOLEXPR_E);
+                        $$->sym = new_temp(symTable, scope);
+                        $$->truelist = llist(next_quad());
+                        $$->falselist = llist(next_quad() + 1);
+                        emit(IF_EQ_I, NULL, $1, $3, 0, yylineno);
+                        emit(JUMP_I, NULL, NULL, NULL, 0, yylineno);
+                    }
+                | expression AND {mk_nbe_vmasm(AND_I, $1);} M expression
+                    {
+                        $$ = expr(BOOLEXPR_E);
+                        $$->sym = new_temp(symTable, scope);
 
+                        // emit if_eq if second expression is not a boolexpr
+                        if($5->type != BOOLEXPR_E){
+                            $5->truelist = llist(next_quad());
+                            $5->falselist = llist(next_quad() + 1);
+                            emit(IF_EQ_I, NULL, $5, bool_expr(1), 0, yylineno);
+                            emit(JUMP_I, NULL, NULL, NULL, 0, yylineno);
+                        }
+
+                        if($1->type == BOOLEXPR_E)
+                            llist_patch($1->truelist, $4);
+
+                        $$->truelist = $5->truelist;
+                        $$->falselist = llist_merge($1->falselist, $5->falselist);
                     }
-                | expression AND M expression
+                | expression OR {mk_nbe_vmasm(OR_I, $1);} M expression
                     {
                         $$ = expr(BOOLEXPR_E);
                         $$->sym = new_temp(symTable, scope);
-                        llist_patch($1->truelist, $3);
-                        $$->truelist = $4->truelist;
-                        $$->falselist = llist_merge($1->falselist, $4->falselist);
-                    }
-                | expression OR M expression
-                    {
-                        $$ = expr(BOOLEXPR_E);
-                        $$->sym = new_temp(symTable, scope);
-                        llist_patch($1->falselist, $3);
-                        $$->truelist = llist_merge($1->truelist, $4->truelist);
-                        $$->falselist = $4->falselist;
+
+                         // emit if_eq if second expression is not a boolexpr
+                        if($5->type != BOOLEXPR_E){
+                            $5->truelist = llist(next_quad());
+                            $5->falselist = llist(next_quad() + 1);
+                            emit(IF_EQ_I, NULL, $5, bool_expr(1), 0, yylineno);
+                            emit(JUMP_I, NULL, NULL, NULL, 0, yylineno);
+                        }
+
+                        if($1->type == BOOLEXPR_E)
+                            llist_patch($1->falselist, $4);
+
+                        $$->truelist = llist_merge($1->truelist, $5->truelist);
+                        $$->falselist = $5->falselist;
                     }
                 | term  
                     {
@@ -235,18 +301,13 @@ term        :   LEFT_PARENTHESIS expression RIGHT_PARENTHESIS
                     {
                         $$ = $2;
                     }
-                | UMINUS expression {
-                                             SymTableEntry *e;
-                                             $$ = $2;
-                                            e = $2->sym;
-                                               
-                                    }
-                | NOT expression {
-                                             SymTableEntry *e;
-                                             $$ = $2;
-                                            e = $2->sym;
-                                               
-                                    }
+                | MINUS expression %prec UMINUS
+                    {
+                        $$ = expr(ARITHEXPR_E);
+                        $$->sym = new_temp(symTable, scope);
+                        emit(UMINUS_I, $$, $2, NULL, next_quad(), yylineno);
+                    }
+                | NOT expression
                 | PLUS_PLUS lvalue
                     {            
                         Expr *ex = (Expr*)0, *val = (Expr*)0;   
@@ -582,7 +643,7 @@ member      :   lvalue DOT ID   {
                     {
                         
                     }
-                | call LEFT_BRACE expression RIGHT_BRACE {}
+                | call LEFT_BRACE expression RIGHT_BRACE
                 ;
 
 call        :   call LEFT_PARENTHESIS elist RIGHT_PARENTHESIS   {
@@ -660,8 +721,8 @@ elist       :   expression                  {
                     }
                 ;
         
-objectdef   :    LEFT_BRACE elist RIGHT_BRACE {}
-                | LEFT_BRACE indexed RIGHT_BRACE {}
+objectdef   :    LEFT_BRACE elist RIGHT_BRACE
+                | LEFT_BRACE indexed RIGHT_BRACE
                 ;
 
 indexed     :   indexedelem
@@ -671,8 +732,8 @@ indexed     :   indexedelem
 indexedelem :   LEFT_BRACKET expression COLON expression RIGHT_BRACKET
                 ;
 
-block       :   blockstart blockend 
-                | blockstart blockstmt blockend
+block       :   blockstart blockend {$$ = stmt();}
+                | blockstart blockstmt blockend {$$ = $2;}
                 ;
 
 blockstart  :   LEFT_BRACKET    {
@@ -684,12 +745,11 @@ blockend    :   RIGHT_BRACKET   {
                                     scope_down(symTable);
                                 }
 
-blockstmt   :   statement
-                | statement blockstmt
+blockstmt   :   statement    {$$ = $1;}
+                | statement blockstmt {$$ = $1;}
                 ;
 
-funcdef     :   funcstart LEFT_PARENTHESIS {scope++;} idlist RIGHT_PARENTHESIS  {    
-                                                                                    scope--; 
+funcdef     :   funcstart LEFT_PARENTHESIS {scope++;} idlist RIGHT_PARENTHESIS  {    scope--; 
                                                                                     _func_count++;
 
                                                                                     // Push function to stack
@@ -789,6 +849,9 @@ arg         :   ID  {
 
 ifstmt      :   ifprefix statement  
                     {
+                        $$ = stmt();
+                        $$->contlist = $2->contlist;
+                        $$->breaklist = $2->breaklist;
                         patch_label($1, next_quad());
                     }
                 | ifprefix statement ELSE statement
@@ -803,74 +866,71 @@ ifprefix    :   IF LEFT_PARENTHESIS { _in_control++; } expression RIGHT_PARENTHE
                         emit(JUMP_I, NULL, NULL, NULL, 0, yylineno);
                     }
 
-loopstart:      {  
-                    ++_in_control_loop;
-                } 
-                ;
+whilestart  :   WHILE
+                    {
+                        $$ = next_quad();
+                    }
 
-loopend:        {  
-                    --_in_control_loop;//pop to bucket tou loop_stack                    
-                }
-                ;
+whilecond   :   LEFT_PARENTHESIS { _in_control++; printf("line: %d: while statement\n", yylineno);} expression RIGHT_PARENTHESIS
+                    {
+                        mk_bool_vmasm($3);
+                        emit(IF_EQ_I, NULL, $3, num_expr(1), next_quad() + 2, yylineno);
+                        $$ = next_quad();
+                        emit(JUMP_I, NULL, NULL, NULL, 0, yylineno);
+                    }
 
-loopstmt:       loopstart statement loopend  {
-                                          
-                                            $$ = $2;
-                                        }
-                   
+whilestmt   :   whilestart whilecond statement
+                    {
+                        $$ = stmt();
+                        $$->contlist = $3->contlist;
+                        $$->breaklist = $3->breaklist;
 
+                        emit(JUMP_I, NULL, NULL, NULL, $1, yylineno);
+                        patch_label($2, next_quad());
+                        llist_patch($3->breaklist, next_quad());
+                        llist_patch($3->contlist, $1);
+                    }
 
-whilestart  :   WHILE   { $$=next_quad(); }
+forprefix   :   forstart elist SEMICOLON M expression SEMICOLON
+                    {
+                        $$ = bool_expr(1);
+                        mk_bool_vmasm($5);
+                        $$->test = $4;
+                        $$->enter = next_quad();
+                        emit(IF_EQ_I, NULL, $5, bool_expr(1), next_quad(), yylineno);
+                    }
 
-whilecond   : LEFT_PARENTHESIS { ++_in_control; printf("line: %d: while statement\n", yylineno);} expression RIGHT_PARENTHESIS{
-                                                                                                                                    mk_bool_vmasm($3);
-                                                                                                                                    emit(IF_EQ_I, NULL, $3, num_expr(1), next_quad() + 2, yylineno);
-                                                                                                                                    $$=next_quad();
-                                                                                                                                    emit(JUMP_I,NULL,NULL,NULL,$2,yylineno);  
-                                                                                                                            }
+forstart    :   FOR LEFT_PARENTHESIS { ++_in_control; printf("line: %d: for statement\n", yylineno);}
 
-whilestmt       :   whilestart whilecond loopstmt  {
+forstmt     :   forprefix N elist RIGHT_PARENTHESIS N statement N
+                    {
+                        $$ = stmt();
+                        $$->contlist = $6->contlist;
+                        $$->breaklist = $6->breaklist;
 
-                                                emit(JUMP_I,NULL,NULL,NULL,$1,yylineno);  
-                                                patch_label($2,next_quad());
-                                                llist_patch($3->breaklist,next_quad());
-                                                llist_patch($3->contlist,$1);
-                                            }
+                        patch_label($1->enter, $5 + 1);
+                        patch_label($2, next_quad());
+                        patch_label($5, $1->test);
+                        patch_label($7, $2 + 1);
 
-N           :   { $$ = next_quad(); 
-                emit(JUMP_I,NULL,NULL,NULL,0,yylineno);  
-                }
+                        llist_patch($6->breaklist,next_quad());
+                        llist_patch($6->contlist,$2+1);
+                    }
 
-forprefix   : forstart elist SEMICOLON M expression SEMICOLON  {
-                                                                mk_bool_vmasm($5);
-                                                                $$->test    = $4;
-                                                                $$->enter   = next_quad();
-                                                                emit(IF_EQ_I, NULL, $5, bool_expr(1), next_quad(), yylineno);
-                                                            }
-                ;
-
-forstmt     :   forprefix N elist RIGHT_PARENTHESIS N statement N {    
-                                                                patch_label($1->enter,$5+1);
-                                                                patch_label($2,next_quad());
-                                                                patch_label($5,$1->test);
-                                                                patch_label($7,$2+1);
-                                                                llist_patch($6->breaklist,next_quad());
-                                                                llist_patch($6->contlist,$2+1);
-                                                                }
-                ;
-
-forstart    :   FOR LEFT_PARENTHESIS { ++_in_control; printf("line: %d: for statement\n", yylineno);} 
+N           :       {
+                        $$ = next_quad();
+                        emit(JUMP_I, NULL, NULL, NULL, 0, yylineno);
+                    }
 
 returnstmt  :   RETURN SEMICOLON
                     {
-                         
                         emit(RET_I, NULL, NULL, NULL, next_quad(), yylineno);
                     }
                 | RETURN expression SEMICOLON
                     {
                         mk_bool_vmasm($2);
                         emit(RET_I, $2, NULL, NULL, next_quad(), yylineno);
-                        $$=$2;
+                        $$ = $2;
                     }
                 ;
 

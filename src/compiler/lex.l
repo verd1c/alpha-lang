@@ -67,14 +67,10 @@ multiline_comment	"/""*"
 }
 
 {intconst}\.{intconst} {
-    int d;
-	sscanf(yytext, "%d", &d);
-	yylval.numValue = d;
+	double f;
+	sscanf(yytext, "%lf", &f);
+	yylval.numValue = f;
     return NUM;
-}
-
-"-"{intconst}|"-"{intconst}\.{intconst} {
-	
 }
 
 {ident} {

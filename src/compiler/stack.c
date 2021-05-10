@@ -28,5 +28,20 @@ void pop_c(Stack *s) {
 }
 
 void *top(Stack *s){
-    return (void*)0;
+    if (s->top == -1) {
+        printf("Empty stack\n");
+        return (void*)0;
+    }else {
+        if (s->top == s->size - 1) {
+
+            void *tmp = s->stack[(int)s->top];
+            s->top = -1;
+            return (void*)tmp;
+        }else {
+
+            void *tmp = s->stack[(int)s->top];
+            s->top = s->top + 1;
+            return (void*)tmp;
+        }
+    }
 }
