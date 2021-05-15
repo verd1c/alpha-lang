@@ -99,17 +99,7 @@
 program     :   statements
 
 statements  :   statements {reset_temp_counter();} statement
-                    {
-                        $$ = stmt();
-                        $$->breaklist = llist_merge($1->breaklist, $3->breaklist);
-                        $$->contlist = llist_merge($1->contlist, $3->contlist);
-                    }
                 | statement 
-                    {
-                        $$ = stmt();
-                        $$->contlist = $1->contlist;
-                        $$->breaklist = $1->breaklist;
-                    }
                 ;
 
 statement   :   expression SEMICOLON
@@ -122,7 +112,7 @@ statement   :   expression SEMICOLON
                     }
                 | whilestmt
                     {
-                        $$ = $1;
+                        $$ = stmt();
                     }
                 | forstmt
                     {
@@ -746,7 +736,12 @@ blockend    :   RIGHT_BRACKET   {
                                 }
 
 blockstmt   :   statement    {$$ = $1;}
-                | statement blockstmt {$$ = $1;}
+                | statement blockstmt 
+                    {
+                        $$ = stmt();
+                        $$->breaklist = llist_merge($1->breaklist, $2->breaklist);
+                        $$->contlist = llist_merge($1->contlist, $2->contlist);
+                    }
                 ;
 
 funcdef     :   funcstart LEFT_PARENTHESIS {scope++;} idlist RIGHT_PARENTHESIS  {    scope--; 
