@@ -68,6 +68,7 @@ struct Expression {
     llist_t enter;
 
     struct Expression* next; // next
+    struct Expression* next_index;
 };
 
 struct Quad {

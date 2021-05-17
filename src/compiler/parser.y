@@ -75,10 +75,10 @@
 %token<strValue>    LEFT_BRACE RIGHT_BRACE LEFT_BRACKET RIGHT_BRACKET LEFT_PARENTHESIS RIGHT_PARENTHESIS SEMICOLON COMMA COLON DOUBLE_COLON DOT DOUBLE_DOT
 %token<strValue>    EQUALS PLUS MINUS MULT DIV MOD EQUALS_EQUALS NOT_EQUALS PLUS_PLUS MINUS_MINUS GREATER_THAN LESS_THAN GREATER_OR_EQUAL LESS_OR_EQUAL UMINUS
 
-%type<numValue>     M N ifprefix whilestart whilecond
+%type<numValue>     M N ifprefix whilestart whilecond elseprefix
 %type<stmtValue>    statement statements forstmt returnstmt whilestmt ifstmt block blockstmt
 %type<strValue>     member arg idlist 
-%type<exprValue>    expression lvalue funcstart const primary term assignexpr elist call funcdef forprefix
+%type<exprValue>    expression lvalue funcstart const primary term assignexpr elist call funcdef forprefix objectdef indexed indexedelem
 %type<functionCall> normcall methodcall callsuffix
 
 %right EQUALS
@@ -298,6 +298,25 @@ term        :   LEFT_PARENTHESIS expression RIGHT_PARENTHESIS
                         emit(UMINUS_I, $$, $2, NULL, next_quad(), yylineno);
                     }
                 | NOT expression
+                    {
+                        llist_t temp;
+                        $$ = expr(BOOLEXPR_E);
+                        $$->sym = $2->sym;
+
+                        if($2->type != BOOLEXPR_E){
+
+                            // reverse
+                            $$->falselist = llist(next_quad());
+                            $$->truelist = llist(next_quad() + 1);
+                            emit(IF_EQ_I, NULL, $2, bool_expr(1), 0, yylineno);
+                            emit(JUMP_I, NULL, NULL, NULL, 0, yylineno);
+                        }else{
+                            temp = $2->truelist;
+                            $$->truelist = $2->falselist;
+                            $$->falselist = temp;
+                        }
+
+                    }
                 | PLUS_PLUS lvalue
                     {            
                         Expr *ex = (Expr*)0, *val = (Expr*)0;   
@@ -542,6 +561,9 @@ primary     :   lvalue  {
                         $$ = $1;
                     }
                 | objectdef
+                    {
+                        $$ = $1;
+                    }
                 | LEFT_PARENTHESIS funcdef RIGHT_PARENTHESIS 
                     {
                         $$ = $2;
@@ -646,6 +668,7 @@ call        :   call LEFT_PARENTHESIS elist RIGHT_PARENTHESIS   {
                                         SymTableEntry *e1;
                                         e1 = $1->sym;
                                         c = $2;
+                                        char *orig_name = $2->name;
                                         c->name = strdup(e1->value.funcValue->name);
                                         print_call(c);
 
@@ -675,6 +698,14 @@ call        :   call LEFT_PARENTHESIS elist RIGHT_PARENTHESIS   {
                                             }
                                         }
 
+                                        if($2->isMethod){
+
+                                            $1->next = $2->elist;
+                                            $2->elist = $1;
+
+                                            $1 = emit_if_table_item(symTable, scope, member_expr(symTable, scope, $1, orig_name));
+                                        }
+
                                         $$ = make_call(symTable, scope, $1, reverse_elist(&$2->elist));
                                     }
                 | LEFT_PARENTHESIS funcdef RIGHT_PARENTHESIS LEFT_PARENTHESIS elist RIGHT_PARENTHESIS {
@@ -688,11 +719,11 @@ callsuffix  :   normcall        {$$ = $1;}
                 ;
 
 normcall    :   LEFT_PARENTHESIS elist RIGHT_PARENTHESIS    {
-                                                                $$ = function_call(FALSE, NULL, scope, $2);
+                                                                $$ = function_call(0, NULL, scope, $2);
                                                             }
 
 methodcall  :   DOUBLE_DOT ID LEFT_PARENTHESIS elist RIGHT_PARENTHESIS  {
-                                                                            $$ = function_call(TRUE, $2, scope, $4);
+                                                                            $$ = function_call(1, $2, scope, $4);
                                                                         }
 
 elist       :   expression                  {
@@ -712,14 +743,54 @@ elist       :   expression                  {
                 ;
         
 objectdef   :    LEFT_BRACE elist RIGHT_BRACE
+                    {
+                        int i = 0;
+                        Expr* t = expr(NEWTABLE_E);
+                        t->sym  = new_temp(symTable, scope);
+                        emit(TABLECREATE_I,t,NULL,NULL,next_quad(),yylineno);
+                        Expr* tmp = $2;
+                        while(tmp != NULL){
+                            emit(TABLESETELEM_I,t,num_expr(i++),tmp,next_quad(),yylineno);
+                            tmp = tmp->next;
+                        }
+                        $$ = t;
+                    }
                 | LEFT_BRACE indexed RIGHT_BRACE
+                    {
+                        Expr* t = expr(NEWTABLE_E);
+                        t->sym  = new_temp(symTable, scope);
+                        emit(TABLECREATE_I, t, NULL, NULL, next_quad(), yylineno);
+                        Expr* tmp = $2;
+                        while(tmp != NULL){
+                            emit(TABLESETELEM_I, t, tmp->index, tmp->next_index, next_quad(), yylineno);
+                            tmp = tmp->next;
+                        }
+                        $$ = t;
+                    }
                 ;
 
 indexed     :   indexedelem
+                    {
+                        $$ = $1;
+                    }
                 | indexedelem COMMA indexed
+                    {
+                        Expr* tmp = $1;
+                        while(tmp->next != NULL){
+                            tmp = tmp->next;
+                        }
+                        tmp->next   = $3;
+                        $$ = $1;
+                    }
                 ;
                 
 indexedelem :   LEFT_BRACKET expression COLON expression RIGHT_BRACKET
+                    {
+                        mk_bool_vmasm($4);
+                        $$=expr(NEWTABLE_E);
+                        $$->index= $2;
+                        $$->next_index  = $4;
+                    }
                 ;
 
 block       :   blockstart blockend {$$ = stmt();}
@@ -849,8 +920,21 @@ ifstmt      :   ifprefix statement
                         $$->breaklist = $2->breaklist;
                         patch_label($1, next_quad());
                     }
-                | ifprefix statement ELSE statement
+                | ifprefix statement elseprefix statement
+                    {
+                        $$ = stmt();
+                        $$->contlist = $2->contlist;
+                        $$->breaklist = $2->breaklist;
+                        patch_label($1, $3 + 1);
+                        patch_label($3, next_quad());
+                    }
                 ;
+
+elseprefix  :   ELSE
+                    {
+                        $$ = next_quad();
+                        emit(JUMP_I, NULL, NULL, NULL, 0, yylineno);
+                    }
 
 ifprefix    :   IF LEFT_PARENTHESIS { _in_control++; } expression RIGHT_PARENTHESIS
                     {
