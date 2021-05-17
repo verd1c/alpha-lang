@@ -406,14 +406,15 @@ term        :   LEFT_PARENTHESIS expression RIGHT_PARENTHESIS
                         }
                     }
                 | MINUS_MINUS lvalue 
-                    {               
+                   {               
+                        Expr *ex = (Expr*)0, *val = (Expr*)0; 
                         SymTableEntry *e;
 
                         // Check wether lvalue is a function
 
                         if($2 && $2->sym && _further_checks){
-                            $$ = $2;
                             e = $2->sym;
+                            ex = $2;
 
                             if(e->type == LOCAL_VAR || e->type == GLOBAL_VAR || e->type == ARGUMENT_VAR){
 
@@ -421,9 +422,9 @@ term        :   LEFT_PARENTHESIS expression RIGHT_PARENTHESIS
                                 if(!e->isActive){
                                     //printf("Adding, I found it inactive on line %d %d\n", e->value.varValue->line, yylineno);
                                     if(scope == 0){
-                                        $$ = sym_expr(insert(symTable, e->value.varValue->name, scope, yylineno, GLOBAL_VAR));
+                                        ex = sym_expr(insert(symTable, e->value.varValue->name, scope, yylineno, GLOBAL_VAR));
                                     }else
-                                        $$ = sym_expr(insert(symTable, e->value.varValue->name, scope, yylineno, LOCAL_VAR));
+                                        ex = sym_expr(insert(symTable, e->value.varValue->name, scope, yylineno, LOCAL_VAR));
                                 }else if(!is_valid(stack, e, scope)){
                                     if(e->value.varValue->scope != scope){
                                         printf("input:%d: error: could not access variable %s\n", yylineno, e->value.varValue->name);
@@ -435,17 +436,29 @@ term        :   LEFT_PARENTHESIS expression RIGHT_PARENTHESIS
                                 // Functions can not be l-values
                                 if(_func_lvalue_check) printf("input:%d: error: on function %s, functions cannot be l-values\n", yylineno, e->value.funcValue->name);
                             }
+
+                            if(ex->type == TABLEITEM_E){
+                                $$ = emit_if_table_item(symTable, scope, ex);
+                                emit(SUB_I, $$, $$, num_expr(1), 0, yylineno);
+                                emit(TABLESETELEM_I, $$, ex, ex->index, 0, yylineno);
+                            }else{
+                                emit(SUB_I, ex, ex, num_expr(1), 0, yylineno);
+                                $$ = expr(ARITHEXPR_E);
+                                $$->sym = new_temp(symTable, scope);
+                                emit(ASSIGN_I, $$, ex, NULL, 0, yylineno);
+                            }
                         }
                     }
                 | lvalue MINUS_MINUS 
                     {               
+                        Expr *ex = (Expr*)0, *val = (Expr*)0;
                         SymTableEntry *e;
 
-                        // Check wether lvalue is a function
+                        // Check whether lvalue is a function
 
                         if($1 && $1->sym && _further_checks){
-                            $$ = $1;
                             e = $1->sym;
+                            ex = $1;
 
                             if(e->type == LOCAL_VAR || e->type == GLOBAL_VAR || e->type == ARGUMENT_VAR){
 
@@ -453,9 +466,9 @@ term        :   LEFT_PARENTHESIS expression RIGHT_PARENTHESIS
                                 if(!e->isActive){
                                     //printf("Adding, I found it inactive on line %d %d\n", e->value.varValue->line, yylineno);
                                     if(scope == 0){
-                                        $$ = sym_expr(insert(symTable, e->value.varValue->name, scope, yylineno, GLOBAL_VAR));
+                                        ex = sym_expr(insert(symTable, e->value.varValue->name, scope, yylineno, GLOBAL_VAR));
                                     }else
-                                        $$ = sym_expr(insert(symTable, e->value.varValue->name, scope, yylineno, LOCAL_VAR));
+                                        ex = sym_expr(insert(symTable, e->value.varValue->name, scope, yylineno, LOCAL_VAR));
                                 }else if(!is_valid(stack, e, scope)){
                                     if(e->value.varValue->scope != scope){
                                         printf("input:%d: error: could not access variable %s\n", yylineno, e->value.varValue->name);
@@ -466,6 +479,17 @@ term        :   LEFT_PARENTHESIS expression RIGHT_PARENTHESIS
                                 
                                 // Functions can not be l-values
                                 if(_func_lvalue_check) printf("input:%d: error: on function %s, functions cannot be l-values\n", yylineno, e->value.funcValue->name);
+                            }
+
+                            $$ = sym_expr(new_temp(symTable, scope));
+                            if(ex->type == TABLEITEM_E){
+                                val = emit_if_table_item(symTable, scope, ex);
+                                emit(ASSIGN_I, $$, val, NULL, 0, yylineno);
+                                emit(SUB_I, val, val, num_expr(1), 0, yylineno);
+                                emit(TABLESETELEM_I, val, ex, ex->index, 0, yylineno);
+                            }else{
+                                emit(ASSIGN_I, $$, ex, NULL, 0, yylineno);
+                                emit(SUB_I, ex, ex, num_expr(1), 0, yylineno);
                             }
                         }
                     }
