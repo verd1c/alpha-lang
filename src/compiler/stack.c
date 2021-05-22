@@ -1,12 +1,23 @@
 #include <stdio.h>
+#include <stdlib.h>
 #include "stack.h"
 
-void push_c(Stack *s, void *data) {
+Stack *stack(){
+    Stack *s;
+
+    s = (Stack*)malloc(sizeof(Stack));
+    s->size = STACK_SIZE;
+    s->top = -1;
+
+    return s;
+}
+
+void push(Stack *s, void *data) {
     if (s->top == -1) { // Empty
         s->stack[s->size - 1] = data;
         s->top = s->size - 1;
     }else if (s->top == 0) { // Full
-        printf("Error: Stack Full\n");
+        return;
     }else {
         s->stack[s->top - 1] = data;
         s->top = s->top - 1;
@@ -14,9 +25,9 @@ void push_c(Stack *s, void *data) {
     return;
 }
 
-void pop_c(Stack *s) {
+void pop(Stack *s) {
     if (s->top == -1) {
-        printf("Empty stack\n");
+        return;
     }else {
         if (s->top == s->size - 1) {
             s->top = -1;
@@ -29,19 +40,8 @@ void pop_c(Stack *s) {
 
 void *top(Stack *s){
     if (s->top == -1) {
-        printf("Empty stack\n");
         return (void*)0;
     }else {
-        if (s->top == s->size - 1) {
-
-            void *tmp = s->stack[(int)s->top];
-            s->top = -1;
-            return (void*)tmp;
-        }else {
-
-            void *tmp = s->stack[(int)s->top];
-            s->top = s->top + 1;
-            return (void*)tmp;
-        }
+        return s->stack[s->top];
     }
 }

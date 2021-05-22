@@ -67,6 +67,8 @@ struct Expression {
     llist_t test;
     llist_t enter;
 
+    int offset;
+
     struct Expression* next; // next
     struct Expression* next_index;
 };
@@ -108,6 +110,16 @@ Expr *nil_expr(void);
 Expr *num_expr(double num);
 Expr *bool_expr(unsigned char bool);
 Expr *member_expr(SymTable *t, int scope, Expr *lvalue, char *name);
+
+//offset 
+scopespace_t currscopespace(void);
+unsigned currscopeoffset(void);
+void inccurrscopeoffset(void);
+void enterscopespace(void);
+void exitscopespace(void);
+void resetformalargsoffset(void);
+void resetfunctionlocalsoffset(void);
+void restorecurrscopeoffset(unsigned n);
 
 void reset_temp_counter(void);
 SymTableEntry *new_temp(SymTable *t, int scope);

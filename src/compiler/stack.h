@@ -12,8 +12,9 @@ struct Stack {
 	void *stack[STACK_SIZE];
 };
 
-void push_c(Stack *s, void *data);
-void pop_c(Stack *s);
+Stack *stack();
+void push(Stack *s, void *data);
+void pop(Stack *s);
 void *top(Stack *s);
 
 

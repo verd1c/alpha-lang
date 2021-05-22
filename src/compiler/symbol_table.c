@@ -3,6 +3,7 @@
 #include <stdlib.h>
 #include <stddef.h>
 #include <string.h>
+#include "stack.h"
 
 static int hash(char *text){
     size_t i;
@@ -464,7 +465,7 @@ SymTableEntry *function_lookup(SymTable *t, char *name, int scope){
     return NULL;
 }
 
-int is_valid(CallStack *s, SymTableEntry *target, int curScope){
+int is_valid(Stack *s, SymTableEntry *target, int curScope){
     int targetScope, i, j;
 
     if(s->top == -1)
@@ -477,7 +478,7 @@ int is_valid(CallStack *s, SymTableEntry *target, int curScope){
     
     for(i = targetScope; i < curScope; i++){
         for(j = s->size - 1; j >= s->top; j--){
-            if(s->stack[j]->value.funcValue->scope == i)
+            if(((SymTableEntry*)s->stack[j])->value.funcValue->scope == i)
                 return 0;
         }
     }
@@ -500,7 +501,7 @@ CallStack *init_call_stack(){
     return stack;
 }
 
-void push(CallStack *s, SymTableEntry *e){
+void push_c(CallStack *s, SymTableEntry *e){
     if(s->top == -1){ // Empty
         s->stack[s->size - 1] = e;
         s->top = s->size - 1;
@@ -513,7 +514,7 @@ void push(CallStack *s, SymTableEntry *e){
     return;
 }
 
-void pop(CallStack *s){
+void pop_c(CallStack *s){
     if(s->top == -1){
         printf("Empty stack\n");
     }else{
@@ -522,6 +523,62 @@ void pop(CallStack *s){
         }else{
             s->top = s->top + 1;
         }
+    }
+}
+
+OffsetStack * init_offset_stack(){
+	OffsetStack *node = malloc(sizeof(OffsetStack));
+	node->next = NULL;
+
+	return node;
+}
+
+SymTableEntry *top_c(CallStack *s){
+    if (s->top == -1) {
+        printf("Empty stack\n");
+        return (void*)0;
+    }else {
+        if (s->top == s->size - 1) {
+
+            SymTableEntry *tmp = s->stack[s->top];
+            s->top = -1;
+            return tmp;
+        }else {
+
+            SymTableEntry *tmp = s->stack[s->top];
+            s->top = s->top + 1;
+            return tmp;
+        }
+    }
+}
+
+scopespace_t push_offset(OffsetStack *s, scopespace_t scspace){
+    OffsetStack *tmp, *new = malloc(sizeof(OffsetStack));
+
+    tmp = s;
+    while(tmp->next) {
+        tmp = tmp->next;
+    }
+    tmp->next = new;
+    new->next = NULL;
+    new->scspace_off = scspace;
+
+    return s->scspace_off;
+}
+
+scopespace_t pop_and_top_offset(OffsetStack *s){
+    if(s->next = NULL) printf("Empty Offset Stack\n");
+    else {
+        OffsetStack *tmp, *prev;
+        tmp = s;
+        prev = tmp;
+
+        while(tmp->next){
+            prev = tmp;
+            tmp = tmp->next;
+        }
+        prev->next = NULL;
+        return tmp->scspace_off;
     }
 }
 

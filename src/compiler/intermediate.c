@@ -5,6 +5,12 @@
 #include <stdlib.h>
 #include <stddef.h>
 #include <string.h>
+#include <math.h>
+
+unsigned int programVarOffset = 0;
+unsigned int functionLocalOffset = 0;
+unsigned int formalArgOffset = 0;
+unsigned int scopeSpaceCounter = 1;
 
 int is_arith(Expr *e){
 	if(	e->type == CONSTBOOL_E 		||
@@ -192,7 +198,10 @@ Call *function_call(unsigned char isMethod,
 	Call *call = (Call *)malloc(sizeof(Call));
 	assert(call);
 	call->isMethod = isMethod;
-	call->name = strdup(name);
+	if(name)
+		call->name = strdup(name);
+	else
+		call->name = NULL;
 	call->scope = scope;
 	call->elist = elist;
 	return call;
@@ -201,6 +210,7 @@ Call *function_call(unsigned char isMethod,
 
 Expr *make_call(SymTable* t, int scope, Expr *call, Expr *revelist) {
 	Expr *iter, *res;
+	call = emit_if_table_item(t, scope, call);
 
 	if (revelist->type != NIL_E) {
 		iter = revelist;
@@ -305,16 +315,26 @@ void llist_patch(llist_t list, int label){
 }
 
 void print_expression(Expr *e){
+	char *appended;
+
 	if(e){
 		if(e->type == CONSTNUM_E){
-			printf(" %-3f ", e->numConst);
+			if(ceilf(e->numConst) == e->numConst)
+				printf(" %-3d ", (int)ceilf(e->numConst));
+			else
+				printf(" %-3f ", e->numConst);
 		}else if(e->type == CONSTBOOL_E){
 			if(e->boolConst == 0)
 				printf(" %-5s ", "false");
 			else
 				printf(" %-5s ", "true");
 		}else if(e->type == CONSTSTRING_E){
-			printf(" %-13s ", e->strConst);
+			appended = (char*)malloc((strlen(e->strConst) + 2) * sizeof(char));
+			memset(appended, 0, strlen(e->strConst) + 2);
+			strcpy(appended, e->strConst);
+			appended[strlen(e->strConst)] = '\"';
+
+			printf(" \"%-13s ", appended);
 		}else if(e->type == NIL_E){
 			printf(" NIL ");
 		}
@@ -422,4 +442,89 @@ void printQuads(void){
 
         printf("\n");
     }
+}
+
+scopespace_t currscopespace(void)
+{
+	if (scopeSpaceCounter == 1)
+	{
+		return programvar;
+	}
+	else if (scopeSpaceCounter % 2 == 0)
+	{
+		return formalarg;
+	}
+	else
+	{
+		return functionlocal;
+	}
+}
+
+unsigned currscopeoffset(void)
+{
+	switch (currscopespace())
+	{
+	case programvar:
+		return programVarOffset;
+	case functionlocal:
+		return functionLocalOffset;
+	case formalarg:
+		return formalArgOffset;
+	default:
+		assert(0);
+	}
+}
+
+void inccurrscopeoffset(void)
+{
+	switch (currscopespace())
+	{
+	case programvar:
+		++programVarOffset;
+		break;
+	case functionlocal:
+		++functionLocalOffset;
+		break;
+	case formalarg:
+		++formalArgOffset;
+		break;
+	default:
+		assert(0);
+	}
+}
+
+void enterscopespace(void) { ++scopeSpaceCounter; }
+
+void exitscopespace(void)
+{
+	assert(scopeSpaceCounter > 1);
+	--scopeSpaceCounter;
+}
+
+void resetformalargsoffset(void)
+{
+	formalArgOffset = 0;
+}
+
+void resetfunctionlocalsoffset(void)
+{
+	functionLocalOffset = 0;
+}
+
+void restorecurrscopeoffset(unsigned n)
+{
+	switch (currscopespace())
+	{
+	case programvar:
+		programVarOffset = n;
+		break;
+	case functionlocal:
+		functionLocalOffset = n;
+		break;
+	case formalarg:
+		formalArgOffset = n;
+		break;
+	default:
+		assert(0);
+	}
 }
