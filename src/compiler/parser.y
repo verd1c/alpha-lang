@@ -9,6 +9,8 @@
     #include "intermediate.h"
     #include "tools.h"
     #include "stack.h"
+    #include "consts.h"
+    #include "binary.h"
 
     int yylex (void);
     int yyerror (char* yaccProvidedMessage);
@@ -78,10 +80,10 @@
 %token<strValue>    LEFT_BRACE RIGHT_BRACE LEFT_BRACKET RIGHT_BRACKET LEFT_PARENTHESIS RIGHT_PARENTHESIS SEMICOLON COMMA COLON DOUBLE_COLON DOT DOUBLE_DOT
 %token<strValue>    EQUALS PLUS MINUS MULT DIV MOD EQUALS_EQUALS NOT_EQUALS PLUS_PLUS MINUS_MINUS GREATER_THAN LESS_THAN GREATER_OR_EQUAL LESS_OR_EQUAL UMINUS
 
-%type<numValue>     M N ifprefix whilestart whilecond elseprefix
+%type<numValue>     M N ifprefix whilestart whilecond elseprefix funcbody
 %type<stmtValue>    statement statements forstmt returnstmt whilestmt ifstmt block blockstmt
-%type<strValue>     member idlist 
-%type<exprValue>    expression lvalue funcstart const primary term assignexpr elist call funcdef forprefix objectdef indexed indexedelem arg
+%type<strValue>     idlist 
+%type<exprValue>    expression lvalue funcstart const primary term assignexpr elist call funcdef forprefix objectdef indexed indexedelem arg member
 %type<functionCall> normcall methodcall callsuffix
 
 %right EQUALS
@@ -101,7 +103,7 @@
 
 program     :   statements
 
-statements  :   statements {reset_temp_counter();} statement
+statements  :   statements statement
                 | statement 
                 ;
 
@@ -109,18 +111,22 @@ statement   :   expression SEMICOLON
                     {
                         $$ = stmt();
                         mk_bool_vmasm($1);
+                        reset_temp_counter();
                     }
                 | ifstmt
                     {
                         $$ = $1;
+                        reset_temp_counter();
                     }
                 | whilestmt
                     {
                         $$ = stmt();
+                        reset_temp_counter();
                     }
                 | forstmt
                     {
                         $$ = stmt();
+                        reset_temp_counter();
                     }
                 | returnstmt            {
                                             SymTableEntry *curfunc = (SymTableEntry*)top(_call_stack);    
@@ -142,6 +148,7 @@ statement   :   expression SEMICOLON
                                                 else _in_control=0;
                                             }
                                             $$ = $1; // might need new
+                                            reset_temp_counter();
                                         }
 
                 | BREAK SEMICOLON       {
@@ -155,6 +162,7 @@ statement   :   expression SEMICOLON
                                             $$ = stmt();
                                             $$->breaklist = next_quad();
                                             emit(JUMP_I, NULL, NULL, NULL, 0, yylineno);
+                                            reset_temp_counter();
                                         }      
                 | CONTINUE SEMICOLON    { 
                                             if(scope==0 && _in_control==0){
@@ -168,24 +176,29 @@ statement   :   expression SEMICOLON
                                             $$ = stmt();
                                             $$->contlist = next_quad();
                                             emit(JUMP_I, NULL, NULL, NULL, 0, yylineno);
+                                            reset_temp_counter();
                                         }
                 | block
                     {
                         $$ = $1;
+                        reset_temp_counter();
                     }
                 | funcdef
                     {
                         $$ = stmt();
+                        reset_temp_counter();
                     }
                 | SEMICOLON
                     {
                         $$ = stmt();
+                        reset_temp_counter();
                     }
                 ;
 
-expression  :   assignexpr                      {
-                                                    $$ = $1;
-                                                }
+expression  :   assignexpr                      
+                    {
+                        $$ = $1;
+                    }
                 | expression PLUS expression    {
                                                     $$ = sym_expr(new_temp(symTable, scope));
                                                     emit(ADD_I, $$, $1, $3, 0, yylineno);
@@ -198,14 +211,16 @@ expression  :   assignexpr                      {
                                                     $$ = sym_expr(new_temp(symTable, scope));
                                                     emit(MUL_I, $$, $1, $3, 0, yylineno);
                                                 }
-                | expression DIV expression     {
-                                                    $$ = sym_expr(new_temp(symTable, scope));
-                                                    emit(DIV_I, $$, $1, $3, 0, yylineno);
-                                                }
-                | expression MOD expression     {
-                                                    $$ = sym_expr(new_temp(symTable, scope));
-                                                    emit(MOD_I, $$, $1, $3, 0, yylineno);
-                                                }
+                | expression DIV expression     
+                    {
+                        $$ = sym_expr(new_temp(symTable, scope));
+                        emit(DIV_I, $$, $1, $3, 0, yylineno);
+                    }
+                | expression MOD expression
+                    {
+                        $$ = sym_expr(new_temp(symTable, scope));
+                        emit(MOD_I, $$, $1, $3, 0, yylineno);
+                    }
                 | expression GREATER_THAN expression
                     {
                         $$ = expr(BOOLEXPR_E);
@@ -344,7 +359,7 @@ term        :   LEFT_PARENTHESIS expression RIGHT_PARENTHESIS
                     }
                 | PLUS_PLUS lvalue
                     {            
-                        Expr *ex = (Expr*)0, *val = (Expr*)0;   
+                        Expr *ex = (Expr*)0;   
                         SymTableEntry *e;
 
                         // Check wether lvalue is a function
@@ -444,7 +459,7 @@ term        :   LEFT_PARENTHESIS expression RIGHT_PARENTHESIS
                     }
                 | MINUS_MINUS lvalue 
                     {               
-                        Expr *ex = (Expr*)0, *val = (Expr*)0;
+                        Expr *ex = (Expr*)0;
                         SymTableEntry *e;
 
                         // Check wether lvalue is a function
@@ -652,7 +667,6 @@ primary     :   lvalue  {
                         $$ = $2;
                     }
                 | const {   
-                            Expr *c = $1;
                             $$ = $1;
                         }
                 ;
@@ -669,7 +683,9 @@ lvalue      :   ID                          {
                                                     else
                                                         $$ = sym_expr(insert(symTable, $1, scope, yylineno, LOCAL_VAR));
                                                     $$->sym->scspace = currscopespace();
-                                                    $$->sym->offset = currscopespace();
+                                                    $$->sym->offset = currscopeoffset();
+                                                    printf("Sym offset -> %d\n", $$->sym->offset);
+                                                    inccurrscopeoffset();
                                                 }else{
 
                                                     // If exists, set value for further checks
@@ -691,7 +707,8 @@ lvalue      :   ID                          {
                                                             $$ = sym_expr(insert(symTable, $2, scope, yylineno, LOCAL_VAR));
                                                         }
                                                         $$->sym->scspace = currscopespace();
-                                                        $$->sym->offset = currscopespace();
+                                                        $$->sym->offset = currscopeoffset();
+                                                        inccurrscopeoffset();
                                                     }else{
                                                         printf("input:%d: error: local symbol %s is attempting to shadow a library function\n", yylineno, $2);
                                                         _valid_comp = 0;
@@ -939,9 +956,13 @@ funcdef     :   funcstart LEFT_PARENTHESIS {scope++;} idlist {enterscopespace();
                         //printCallStack(stack, yylineno);
                     } 
                                                                                     
-                block   {
+                funcbody   {
                             _func_count--;
                             exitscopespace();
+                            if($1 && $1->sym)
+                                $1->sym->total_locals = $8;
+
+                            printf("TOTAL LOCALS FOR SMTH: %d\n", $8);
                             
                             restorecurrscopeoffset(pop_and_top_offset(scopeoffsetstack));
 
@@ -955,6 +976,13 @@ funcdef     :   funcstart LEFT_PARENTHESIS {scope++;} idlist {enterscopespace();
                             $$ = $1;
                         }
                 ;
+
+funcbody    :   block   
+                    {
+                        $$ = currscopeoffset();
+                        printf("CURSCOPEOFFSET : %d\n", $$);
+                        exitscopespace();
+                    }
 
 funcstart   :   FUNCTION ID {
                                 SymTableEntry *e;
@@ -984,8 +1012,13 @@ funcstart   :   FUNCTION ID {
                                     $$ = NULL;
                                 }
 
+
+                                if($$ && $$->sym)
+                                    $$->sym->iaddress = next_quad();
+
                                 if($$)
                                     emit(FUNCSTART_I, $$, 0, 0, 0, yylineno);
+
 
 
                                 push_offset(scopeoffsetstack, currscopeoffset());
@@ -1001,8 +1034,13 @@ funcstart   :   FUNCTION ID {
                                 sprintf(s, "$%d", _anon_func_counter);
 
                                 $$ = sym_expr(insert(symTable, s, scope, yylineno, USER_FUNC));
+                                $$->sym->scspace = currscopespace();
+                                $$->sym->offset = currscopespace();
 
                                 _anon_func_counter++;
+
+                                if($$ && $$->sym)
+                                    $$->sym->iaddress = next_quad();
 
                                 emit(FUNCSTART_I, $$, 0, 0, 0, yylineno);
                                 push_offset(scopeoffsetstack, currscopeoffset());
@@ -1027,8 +1065,8 @@ const       :   NUM         {
                                 $$ = bool_expr(0);
                             }
 
-idlist      :   arg
-                | arg COMMA idlist
+idlist      :   arg {}
+                | arg COMMA idlist {}
                 | {}
                 ;
 
@@ -1230,6 +1268,10 @@ void printByScope(SymTable *symTable){
 }
 
 int main(int argc, char **argv){
+
+    // redir stdout
+    //freopen("quads.txt", "w", stdout);
+
     if(argc > 1){
         if(!(yyin = fopen(argv[1], "r"))){
             printf("File not found\n");
@@ -1254,6 +1296,10 @@ int main(int argc, char **argv){
     //printSymTable(symTable);
     printByScope(symTable);
     printQuads();
+
+    parse_target_code();
+
+    mk_bin("target.abc");
 
     return 0;
 }

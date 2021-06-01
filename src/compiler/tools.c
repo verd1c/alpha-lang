@@ -7,9 +7,6 @@ inline void bp(void){
 }
 
 void alpha_message(FILE* fp, enum message_t type, char* error, ...) {
-    char *iter, *s;
-    unsigned int i;
-
     switch (type) {
     case INFO:
 

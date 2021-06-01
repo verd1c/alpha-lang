@@ -20,7 +20,7 @@ typedef enum scopespace_t {
 }scopespace_t;
 
 typedef struct OffsetStack_t{
-    struct offset *next;
+    struct OffsetStack_t *next;
     scopespace_t scspace_off;
 }OffsetStack;
 
@@ -38,6 +38,11 @@ enum EntryType{
     LIB_FUNC
 };
 
+typedef struct rlist {
+    unsigned label;
+    struct rlist *next;
+} rlist;
+
 typedef struct Variable {
     char *name;
     int scope;
@@ -49,6 +54,7 @@ typedef struct Function {
     char **argv;
     int scope;
     int line;
+    rlist *return_list;
 } Function;
 
 typedef struct SymTableEntry {
@@ -63,6 +69,9 @@ typedef struct SymTableEntry {
     scopespace_t scspace;
     unsigned offset;
     unsigned scope;
+
+    unsigned iaddress;
+    int total_locals;
 
     struct SymTableEntry *nextEntry;    // next entry
 

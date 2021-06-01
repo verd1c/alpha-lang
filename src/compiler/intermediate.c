@@ -5,6 +5,7 @@
 #include <stdlib.h>
 #include <stddef.h>
 #include <string.h>
+#include "consts.h"
 #include <math.h>
 
 unsigned int programVarOffset = 0;
@@ -22,6 +23,7 @@ int is_arith(Expr *e){
 		e->type == BOOLEXPR_E){
 			return 0;
 	}
+	return 1;
 }
 
 unsigned next_quad(void){
@@ -148,6 +150,13 @@ Expr* sym_expr(SymTableEntry *e){
 	memset(expr, 0, sizeof(Expr));
 
 	expr->type = VAR_E;
+
+	if (e->type == LIB_FUNC) {
+		expr->type = LIBRARYFUNC_E;
+	}else if (e->type == USER_FUNC) {
+		expr->type = PROGRAMFUNC_E;
+	}
+
 	expr->sym = e;
 
 	return expr;
@@ -168,7 +177,7 @@ char* new_temp_name(void) {
 		exit(0);
 	}
 
-	sprintf(name, "^%d", _temp_counter++);
+	sprintf(name, "^%d", (int)_temp_counter++);
 	return name;
 }
 
@@ -187,8 +196,20 @@ SymTableEntry* new_temp(SymTable* t, int scope) {
 
 	if (e)
 		return e;
-	else
-		return insert(t, t_name, scope, yylineno, LOCAL_VAR);
+	else{
+
+		// BREAK EVERYTHING
+		if (scope == 0) {
+			e = insert(t, t_name, scope, yylineno, GLOBAL_VAR);
+		}
+		else {
+			e = insert(t, t_name, scope, yylineno, LOCAL_VAR);
+		}
+		e->scspace = currscopespace();
+        e->offset = currscopeoffset();
+		inccurrscopeoffset();
+		return e;
+	}
 }
 
 Call *function_call(unsigned char isMethod,
@@ -391,13 +412,6 @@ Stmt *stmt(void){
 	return statement;
 }
 
-
-
-
-
-
-
-
 void print_call(Call *c) {
 	printf("Call [%d] [%-10s] [%-3d]\n", c->isMethod, c->name, c->scope);
 }
@@ -412,16 +426,12 @@ void print_call(Call *c) {
         "RET",   "GETRETVAL",  "FUNCSTART",
         "FUNCEND",    "TABLECREATE", 
         "TABLEGETELEM",   "TABLESETELEM", "JUMP"
-    };
+ };
 
 void printQuads(void){
     Quad q;
-    Expr *e;
     int i;
-
-    printf("-------------------------------\n");
-    printf("[#]\n");
-    printf("-------------------------------\n");
+	
     for(i = 1; i < currQuad; i++){
         q = quads[i];
         printf(" %-3d: %-13s ", i, opcodeToStrin_g[q.op]);
@@ -473,6 +483,7 @@ unsigned currscopeoffset(void)
 	default:
 		assert(0);
 	}
+	return 0;
 }
 
 void inccurrscopeoffset(void)

@@ -4,6 +4,7 @@
 #include <stddef.h>
 #include <string.h>
 #include "stack.h"
+#include "intermediate.h"
 
 static int hash(char *text){
     size_t i;
@@ -196,6 +197,8 @@ SymTableEntry *insert(SymTable *t, char *name, int scope, int line, enum EntryTy
             t->table[h]->value.varValue->name = name;
             t->table[h]->value.varValue->scope = scope;
             t->table[h]->value.varValue->line = line;
+            t->table[h]->scspace = currscopespace();
+            t->table[h]->offset = currscopeoffset();
         }else{
             t->table[h]->value.funcValue = (Function*)malloc(sizeof(Function));
 
@@ -206,6 +209,9 @@ SymTableEntry *insert(SymTable *t, char *name, int scope, int line, enum EntryTy
             t->table[h]->value.funcValue->name = name;
             t->table[h]->value.funcValue->scope = scope;
             t->table[h]->value.funcValue->line = line;
+            t->table[h]->value.funcValue->return_list = NULL;
+            t->table[h]->scspace = currscopespace();
+            t->table[h]->offset = currscopeoffset();
         }
 
         t->table[h]->type = type;
@@ -242,6 +248,8 @@ SymTableEntry *insert(SymTable *t, char *name, int scope, int line, enum EntryTy
             iter->nextEntry->value.varValue->name = name;
             iter->nextEntry->value.varValue->scope = scope;
             iter->nextEntry->value.varValue->line = line;
+            iter->nextEntry->scspace = currscopespace();
+            iter->nextEntry->offset = currscopeoffset();
         }else{
             iter->nextEntry->value.funcValue = (Function*)malloc(sizeof(Function));
 
@@ -253,6 +261,9 @@ SymTableEntry *insert(SymTable *t, char *name, int scope, int line, enum EntryTy
             iter->nextEntry->value.funcValue->name = name;
             iter->nextEntry->value.funcValue->scope = scope;
             iter->nextEntry->value.funcValue->line = line;
+            iter->nextEntry->value.funcValue->return_list = NULL;
+            iter->nextEntry->scspace = currscopespace();
+            iter->nextEntry->offset = currscopeoffset();
         }
 
         iter->nextEntry->type = type;
@@ -567,7 +578,7 @@ scopespace_t push_offset(OffsetStack *s, scopespace_t scspace){
 }
 
 scopespace_t pop_and_top_offset(OffsetStack *s){
-    if(s->next = NULL) printf("Empty Offset Stack\n");
+    if(s->next == NULL) printf("Empty Offset Stack\n");
     else {
         OffsetStack *tmp, *prev;
         tmp = s;
@@ -580,6 +591,7 @@ scopespace_t pop_and_top_offset(OffsetStack *s){
         prev->next = NULL;
         return tmp->scspace_off;
     }
+    return 0;
 }
 
 char *typeToStringA[] = {
