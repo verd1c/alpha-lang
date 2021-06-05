@@ -2,12 +2,12 @@
 //
 #include <fstream>
 #include <iostream>
+#include "vm.h"
 #include "vmarg.h"
 
 int main()
 {
-    Compiler compiler = Compiler();
-    compiler.parse("target.abc");
-
-    compiler.printInstructions();
+    VM vm = VM();
+    vm.parse("target.abc");
+    vm.printInstructions();
 }

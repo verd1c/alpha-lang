@@ -3,25 +3,29 @@
 
 #include <vector>
 #include <stack>
+#include "vmarg.h"
 
 #define AVM_STACKSIZE   4096
 #define AVM_WIPEOUT(m)  memset(&(m), 0, sizeof(m))
 
-enum AVM_memcell_t {
-    number_m = 0,
-    string_m = 1,
-    bool_m = 2,
-    table_m = 3,
-    userfunc_m = 4,
-    libfunc_m = 6,
-    nil_m = 6,
-    undef_m = 7
-};
+namespace AVM_memcell_t {
+    enum AVM_memcell_t {
+        number_m,
+        string_m,
+        bool_m,
+        table_m,
+        userfunc_m,
+        libfunc_m,
+        nil_m,
+        undef_m
+    };
+}
 
 enum AVM_table;
 
 struct AVM_memcell {
-    AVM_memcell_t type;
+    AVM_memcell_t::AVM_memcell_t type;
+
     union data {
         double numVal;
         char *strVal;
@@ -33,11 +37,9 @@ struct AVM_memcell {
 };
 
 class AVMStack {
-    std::stack<AVM_memcell> stack;
-
-    AVMStack() {
-        
-    }
+public:
+    AVM_memcell stack[AVM_STACKSIZE];
+    AVMStack();
 };
 
 #endif

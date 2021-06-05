@@ -2,6 +2,9 @@
 #define __VMARG__
 
 #include <vector>
+#include <string>
+
+using namespace std;
 
 enum VMOpcode_t {
     assign_v, add_v, sub_v,
@@ -14,23 +17,25 @@ enum VMOpcode_t {
     tablegetelem_v, tablesetelem_v, jump_v, nop_v
 };
 
-enum VMArg_t {
-    label_a = 0,
-    global_a = 1,
-    formal_a = 2,
-    local_a = 3,
-    number_a = 4,
-    string_a = 5,
-    bool_a = 6,
-    nil_a = 7,
-    userfunc_a = 8,
-    libfunc_a = 9,
-    retval_a = 10,
-    invalid_a = 11
-};
+namespace VMArg_t {
+    enum VMArg_t {
+        label,
+        global,
+        formal,
+        local,
+        number,
+        string,
+        bool_a,
+        nil,
+        userfunc,
+        libfunc,
+        retval,
+        invalid
+    };
+}
 
 struct VMArg {
-    VMArg_t type;
+    VMArg_t::VMArg_t type;
     unsigned int val;
 };
 
@@ -40,20 +45,6 @@ struct Instruction {
     VMArg arg1;
     VMArg arg2;
     int src_line;
-};
-
-class Compiler {
-
-    unsigned int magic_number;
-    unsigned int instruction_len;
-
-    std::vector<Instruction> instructions;
-
-public:
-    int parse(const char *fname);
-    unsigned int getMagicNumber();
-    void printInstructions();
-    std::vector<Instruction> getInstructions();
 };
 
 #endif
