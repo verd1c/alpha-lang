@@ -39,6 +39,12 @@ struct VMArg {
     unsigned int val;
 };
 
+struct userfunc {
+    unsigned    address;
+    unsigned    local_size;
+    char *id;
+};
+
 struct Instruction {
     VMOpcode_t op;
     VMArg result;

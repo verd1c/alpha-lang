@@ -23,3 +23,7 @@ void Execute::jlt(Instruction *instr) {
 void Execute::jgt(Instruction *instr) {
 	// fill
 }
+
+void Execute::jump(Instruction *instr) {
+	// fill
+}

@@ -12,6 +12,10 @@ void Execute::mul(Instruction *instr) {
 	// fill
 }
 
+void Execute::div(Instruction *instr) {
+	// fill
+}
+
 void Execute::mod(Instruction *instr) {
 	// fill
 }

@@ -3,6 +3,8 @@
 
 #include "vmarg.h"
 
+typedef void	(*exec_func_t)(Instruction *instr);
+
 namespace Execute {
 
 	// assign.cpp
@@ -12,6 +14,7 @@ namespace Execute {
 	extern void add(Instruction *instr);
 	extern void sub(Instruction *instr);
 	extern void mul(Instruction *instr);
+	extern void div(Instruction *instr);
 	extern void mod(Instruction *instr);
 	extern void minus(Instruction *instr);
 
@@ -39,8 +42,12 @@ namespace Execute {
 	extern void tablegetelem(Instruction *instr);
 	extern void tablesetelem(Instruction *instr);
 
+	extern void jump(Instruction *inst);
+
 	// nop.cpp
 	extern void nop(Instruction *instr);
 }
+
+extern exec_func_t exec_funcs[];
 
 #endif

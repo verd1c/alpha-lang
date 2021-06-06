@@ -4,6 +4,7 @@
 #include <iostream>
 #include "mem.h"
 #include "vmarg.h"
+#include "execute.h"
 
 using namespace std;
 
@@ -16,14 +17,13 @@ class VM {
 	vector<Instruction> instructions;
 	vector<double> nums;
 	vector<string> strings;
+	vector<userfunc> userfuncs;
 	vector<string> libfuncs;
 
 	/* Memory */
 	AVM_memcell ax, bx, cx, retval;
 	unsigned top, topsp;
 	AVMStack stack;
-	vector<double> nums;
-	vector<string> strings;
 
 	AVM_memcell *translate_operand(VMArg *arg, AVM_memcell *reg);
 
@@ -35,7 +35,7 @@ public:
 	void printInstructions();
 	vector<Instruction> getInstructions();
 
-	void execution_cycle();
+	void execute_cycle(void);
 };
 
 #endif
