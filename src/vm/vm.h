@@ -9,6 +9,7 @@
 using namespace std;
 
 class VM {
+public:
 	/* Meta Data */
 	unsigned int magic_number;
 	unsigned int instruction_len;
@@ -36,7 +37,6 @@ class VM {
 
 	AVM_memcell *translate_operand(VMArg *arg, AVM_memcell *reg);
 
-public:
 	VM();
 
 	int parse(const char *fname);

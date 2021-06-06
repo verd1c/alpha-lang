@@ -1,13 +1,13 @@
 #include "../execute.h"
 
-void Execute::eand(Instruction *instr) {
+void Execute::eand(VM *vm, Instruction *instr) {
 	// fill
 }
 
-void Execute::eor(Instruction *instr) {
+void Execute::eor(VM *vm, Instruction *instr) {
 	// fill
 }
 
-void Execute::enot(Instruction *instr) {
+void Execute::enot(VM *vm, Instruction *instr) {
 	// fill
 }

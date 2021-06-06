@@ -1,25 +1,25 @@
 #include "../execute.h"
 
-void Execute::add(Instruction *instr) {
+void Execute::add(VM *vm, Instruction *instr) {
 	// fill
 }
 
-void Execute::sub(Instruction *instr) {
+void Execute::sub(VM *vm, Instruction *instr) {
 	// fill
 }
 
-void Execute::mul(Instruction *instr) {
+void Execute::mul(VM *vm, Instruction *instr) {
 	// fill
 }
 
-void Execute::div(Instruction *instr) {
+void Execute::div(VM *vm, Instruction *instr) {
 	// fill
 }
 
-void Execute::mod(Instruction *instr) {
+void Execute::mod(VM *vm, Instruction *instr) {
 	// fill
 }
 
-void Execute::minus(Instruction *instr) {
+void Execute::minus(VM *vm, Instruction *instr) {
 	// fill
 }

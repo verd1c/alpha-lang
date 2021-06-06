@@ -2,52 +2,53 @@
 #define __EXECUTE__
 
 #include "vmarg.h"
+#include "vm.h"
 
-typedef void	(*exec_func_t)(Instruction *instr);
+class VM;
 
 namespace Execute {
 
 	// assign.cpp
-	extern void assign(Instruction *instr);
+	extern void assign(VM *vm, Instruction *instr);
 
 	// arithmetic.cpp
-	extern void add(Instruction *instr);
-	extern void sub(Instruction *instr);
-	extern void mul(Instruction *instr);
-	extern void div(Instruction *instr);
-	extern void mod(Instruction *instr);
-	extern void minus(Instruction *instr);
+	extern void add(VM *vm, Instruction *instr);
+	extern void sub(VM *vm, Instruction *instr);
+	extern void mul(VM *vm, Instruction *instr);
+	extern void div(VM *vm, Instruction *instr);
+	extern void mod(VM *vm, Instruction *instr);
+	extern void minus(VM *vm, Instruction *instr);
 
 	// boolean.cpp
-	extern void eand(Instruction *instr);
-	extern void eor(Instruction *instr);
-	extern void enot(Instruction *instr);
+	extern void eand(VM *vm, Instruction *instr);
+	extern void eor(VM *vm, Instruction *instr);
+	extern void enot(VM *vm, Instruction *instr);
 
 	// jump.cpp
-	extern void jeq(Instruction *instr);
-	extern void jne(Instruction *instr);
-	extern void jle(Instruction *instr);
-	extern void jge(Instruction *instr);
-	extern void jlt(Instruction *instr);
-	extern void jgt(Instruction *instr);
+	extern void jeq(VM *vm, Instruction *instr);
+	extern void jne(VM *vm, Instruction *instr);
+	extern void jle(VM *vm, Instruction *instr);
+	extern void jge(VM *vm, Instruction *instr);
+	extern void jlt(VM *vm, Instruction *instr);
+	extern void jgt(VM *vm, Instruction *instr);
 
 	// func.cpp
-	extern void call(Instruction *instr);
-	extern void pusharg(Instruction *instr);
-	extern void funcenter(Instruction *instr);
-	extern void funcexit(Instruction *instr);
+	extern void call(VM *vm, Instruction *instr);
+	extern void pusharg(VM *vm, Instruction *instr);
+	extern void funcenter(VM *vm, Instruction *instr);
+	extern void funcexit(VM *vm, Instruction *instr);
 
 	// table.cpp
-	extern void newtable(Instruction *instr);
-	extern void tablegetelem(Instruction *instr);
-	extern void tablesetelem(Instruction *instr);
+	extern void newtable(VM *vm, Instruction *instr);
+	extern void tablegetelem(VM *vm, Instruction *instr);
+	extern void tablesetelem(VM *vm, Instruction *instr);
 
-	extern void jump(Instruction *inst);
+	extern void jump(VM *vm, Instruction *inst);
 
 	// nop.cpp
-	extern void nop(Instruction *instr);
+	extern void nop(VM *vm, Instruction *instr);
 }
 
-extern exec_func_t exec_funcs[];
+extern void (*exec_funcs[])(VM *vm, Instruction *instr);
 
 #endif

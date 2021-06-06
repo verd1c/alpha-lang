@@ -1,5 +1,5 @@
 #include "../execute.h"
 
-void Execute::nop(Instruction *instr) {
+void Execute::nop(VM *vm, Instruction *instr) {
 	// fill
 }

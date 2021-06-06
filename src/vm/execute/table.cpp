@@ -1,13 +1,13 @@
 #include "../execute.h"
 
-void Execute::newtable(Instruction *instr) {
+void Execute::newtable(VM *vm, Instruction *instr) {
 	// fill
 }
 
-void Execute::tablegetelem(Instruction *instr) {
+void Execute::tablegetelem(VM *vm, Instruction *instr) {
 	// fill
 }
 
-void Execute::tablesetelem(Instruction *instr) {
+void Execute::tablesetelem(VM *vm, Instruction *instr) {
 	// fill
 }

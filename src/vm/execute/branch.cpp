@@ -1,29 +1,29 @@
 #include "../execute.h"
 
-void Execute::jeq(Instruction *instr) {
+void Execute::jeq(VM *vm, Instruction *instr) {
 	// fill
 }
 
-void Execute::jne(Instruction *instr) {
+void Execute::jne(VM *vm, Instruction *instr) {
 	// fill
 }
 
-void Execute::jle(Instruction *instr) {
+void Execute::jle(VM *vm, Instruction *instr) {
 	// fill
 }
 
-void Execute::jge(Instruction *instr) {
+void Execute::jge(VM *vm, Instruction *instr) {
 	// fill
 }
 
-void Execute::jlt(Instruction *instr) {
+void Execute::jlt(VM *vm, Instruction *instr) {
 	// fill
 }
 
-void Execute::jgt(Instruction *instr) {
+void Execute::jgt(VM *vm, Instruction *instr) {
 	// fill
 }
 
-void Execute::jump(Instruction *instr) {
+void Execute::jump(VM *vm, Instruction *instr) {
 	// fill
 }

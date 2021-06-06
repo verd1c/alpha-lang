@@ -1,6 +1,6 @@
 #include "execute.h"
 
-exec_func_t exec_funcs[] = {
+void (*exec_funcs[])(VM *vm, Instruction *instr) = {
 	// assign.cpp
 	Execute::assign,
 

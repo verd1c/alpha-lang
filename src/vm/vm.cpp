@@ -221,7 +221,7 @@ void VM::execute_cycle(void) {
 			unsigned old_pc = pc;
 
 			// execute
-			(*exec_funcs[instr->op])(instr);
+			(*exec_funcs[instr->op])(this, instr);
 
 			if (pc == old_pc) {
 				++pc;
