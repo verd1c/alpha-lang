@@ -76,6 +76,7 @@ int VM::parse(const char *fname) {
 
 	// read instrs
 	binary.read(reinterpret_cast<char *>(&this->instruction_len), sizeof(unsigned));
+	this->code_size = this->instruction_len;
 	for (int i = 0; i < this->instruction_len; i++) {
 		Instruction instr;
 		memset(&instr, 0, sizeof(Instruction));
@@ -162,14 +163,70 @@ AVM_memcell *VM::translate_operand(VMArg *arg, AVM_memcell *reg) {
 	case VMArg_t::global:
 		return &this->stack.stack[AVM_STACKSIZE - 1 - arg->val];
 	case VMArg_t::local:
+		return &this->stack.stack[this->topsp - arg->val];
 	case VMArg_t::formal:
+		return &this->stack.stack[this->topsp + AVM_STACKENV_SIZE + 1 + arg->val];
 	case VMArg_t::retval:
-		break;
+		return &this->retval;
+	case VMArg_t::number:
+		reg->type = AVM_memcell_t::number_m;
+		reg->data.numVal = this->nums.at(arg->val);
+		return reg;
+	case VMArg_t::string:
+		reg->type = AVM_memcell_t::string_m;
+		reg->data.strVal = strdup(this->strings.at(arg->val).c_str());
+		return reg;
+	case VMArg_t::bool_a:
+		reg->type = AVM_memcell_t::bool_m;
+		reg->data.boolVar = arg->val;
+		return reg;
+	case VMArg_t::nil:
+		reg->type = AVM_memcell_t::nil_m;
+		return reg;
+	case VMArg_t::userfunc:
+		reg->type = AVM_memcell_t::userfunc_m;
+		reg->data.funcVal = arg->val;
+		return reg;
+	case VMArg_t::libfunc:
+		reg->type = AVM_memcell_t::libfunc_m;
+		reg->data.libfuncVal = strdup(this->libfuncs.at(arg->val).c_str());
+		return reg;
 	}
 }
 
 void VM::execute_cycle(void) {
-	for (Instruction instr : this->instructions) {
-		(exec_funcs[instr.op])(&instr);
+	if (exec_finished == true) {
+		return;
+	}
+	else {
+		if (pc == code_size) {
+			exec_finished = true;
+			return;
+		}
+		else {
+			if (pc >= code_size) {
+				printf("BUG?!?!\n");
+			}
+
+			Instruction *instr = &instructions.at(pc);
+
+			if (instr->op < 0 || instr->op > nop_v) {
+				printf("BUG???!?!?\n");
+			}
+
+			if (instr->src_line) {
+				curr_line = instr->src_line;
+			}
+
+			unsigned old_pc = pc;
+
+			// execute
+			(*exec_funcs[instr->op])(instr);
+
+			if (pc == old_pc) {
+				++pc;
+			}
+
+		}
 	}
 }

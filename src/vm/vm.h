@@ -20,6 +20,15 @@ class VM {
 	vector<userfunc> userfuncs;
 	vector<string> libfuncs;
 
+	/* Dispatcher */
+	bool exec_finished = false;
+	unsigned pc = 0;
+	unsigned curr_line = 0;
+	unsigned code_size = 0;
+	Instruction *code = (Instruction *)nullptr;
+
+
+
 	/* Memory */
 	AVM_memcell ax, bx, cx, retval;
 	unsigned top, topsp;

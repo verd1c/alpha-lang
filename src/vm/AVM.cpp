@@ -10,5 +10,7 @@ int main()
     VM vm = VM();
     vm.parse("target.abc");
     vm.execute_cycle();
+    vm.execute_cycle();
+    vm.execute_cycle();
     vm.printInstructions();
 }
