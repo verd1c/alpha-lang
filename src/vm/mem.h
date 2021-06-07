@@ -4,46 +4,18 @@
 #include <vector>
 #include <stack>
 #include "vmarg.h"
+#include "vm.h"
+#include "structs.h"
 
-#define AVM_STACKSIZE   4096
+
+class VM;
+
 #define AVM_WIPEOUT(m)  memset(&(m), 0, sizeof(m))
 #define AVM_STACKENV_SIZE   4
-
-namespace AVM_memcell_t {
-    enum AVM_memcell_t {
-        number_m,
-        string_m,
-        bool_m,
-        table_m,
-        userfunc_m,
-        libfunc_m,
-        nil_m,
-        undef_m
-    };
-}
-
-enum AVM_table;
-
-union data_t {
-    double numVal;
-    char *strVal;
-    unsigned char boolVar;
-    struct avm_table *tableVal;
-    unsigned funcVal;
-    char *libfuncVal;
-};
-
-struct AVM_memcell {
-    AVM_memcell_t::AVM_memcell_t type;
-
-    data_t data;
-};
-
-class AVMStack {
-public:
-    AVM_memcell stack[AVM_STACKSIZE];
-    AVMStack();
-};
+#define AVM_NUMACTUALS_OFFSET 4
+#define AVM_SAVEDPC_OFFSET 3
+#define AVM_SAVEDTOP_OFFSET 2
+#define AVM_SAVEDTOPSP_OFFSET 1
 
 namespace memclear {
     typedef void (*func_t)(AVM_memcell *);
@@ -57,6 +29,14 @@ namespace memclear {
 
 namespace mem {
     void assign(AVM_memcell *lv, AVM_memcell *rv);
+
+    void dec_top(VM *vm);
+    unsigned get_envvalue(VM *vm, unsigned i);
+    void push_envvalue(VM *vm, unsigned val);
+    void call_save_environment(VM *vm);
+    void calllibfunc(VM *vm, char *id);
+    unsigned totalactuals(VM *vm);
+    AVM_memcell *getactual(VM *vm, unsigned i);
 }
 
 #endif

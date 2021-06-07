@@ -2,8 +2,11 @@
 #include <fstream>
 #include "vmarg.h"
 #include "vm.h"
+#include "mem.h"
+#include "execute.h"
 
 VM::VM() {
+	this->top = AVM_STACKSIZE - 1;
 	return;
 }
 
@@ -43,7 +46,7 @@ int VM::parse(const char *fname) {
 	for (int i = 0; i < len; i++) {
 		char *str = breadstr(&binary);
 		this->strings.push_back(string(str));
-		cout << "String: " << this->strings.front() << "\n";
+		//cout << "String: " << this->strings.front() << "\n";
 	}
 
 	binary.read(reinterpret_cast<char *>(&len), sizeof(unsigned));
@@ -53,7 +56,7 @@ int VM::parse(const char *fname) {
 		d = stod(str);
 		//binary.read(reinterpret_cast<char *>(&d), sizeof(double));
 		this->nums.push_back(d);
-		cout << "Num : " << d << "\n";
+		//cout << "Num : " << d << "\n";
 	}
 
 	binary.read(reinterpret_cast<char *>(&len), sizeof(unsigned));
@@ -63,14 +66,14 @@ int VM::parse(const char *fname) {
 		binary.read(reinterpret_cast<char *>(&uf.local_size), sizeof(unsigned));
 		uf.id = breadstr(&binary);
 		userfuncs.push_back(uf);
-		cout << "Read Userfunc\n";
+		//cout << "Read Userfunc\n";
 	}
 
 	binary.read(reinterpret_cast<char *>(&len), sizeof(unsigned));
 	for (int i = 0; i < len; i++) {
 		char *str = breadstr(&binary);
 		this->libfuncs.push_back(string(str));
-		cout << "Libfunc: " << this->libfuncs.front() << "\n";
+		//cout << "Libfunc: " << this->libfuncs.front() << "\n";
 	}
 
 
@@ -82,10 +85,21 @@ int VM::parse(const char *fname) {
 		memset(&instr, 0, sizeof(Instruction));
 		binary.read(reinterpret_cast<char *>(&instr), 32);
 
+		if (instr.arg1.type == VMArg_t::global && instr.arg1.val > totalGlobals)
+			totalGlobals = instr.arg1.val;
+
+		if (instr.arg2.type == VMArg_t::global && instr.arg2.val > totalGlobals)
+			totalGlobals = instr.arg2.val;
+
+		if (instr.result.type == VMArg_t::global && instr.result.val > totalGlobals)
+			totalGlobals = instr.result.val;
+
 		this->instructions.push_back(instr);
 	}
 
 	binary.close();
+
+	this->top = AVM_STACKSIZE - 1 - this->totalGlobals;
 	return 1;
 }
 

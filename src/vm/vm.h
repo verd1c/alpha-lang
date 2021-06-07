@@ -2,9 +2,9 @@
 #define __VM__
 
 #include <iostream>
-#include "mem.h"
 #include "vmarg.h"
-#include "execute.h"
+#include "structs.h"
+
 
 using namespace std;
 
@@ -20,19 +20,23 @@ public:
 	vector<string> strings;
 	vector<userfunc> userfuncs;
 	vector<string> libfuncs;
+	unsigned totalGlobals = 0;
 
 	/* Dispatcher */
 	bool exec_finished = false;
 	unsigned pc = 0;
 	unsigned curr_line = 0;
 	unsigned code_size = 0;
-	Instruction *code = (Instruction *)nullptr;
-
-
+	//Instruction *code = 0;
 
 	/* Memory */
-	AVM_memcell ax, bx, cx, retval;
-	unsigned top, topsp;
+	AVM_memcell ax;
+	AVM_memcell bx;
+	AVM_memcell cx;
+	AVM_memcell retval;
+	unsigned top;
+	unsigned topsp;
+	unsigned totalActuals = 0;
 	AVMStack stack;
 
 	AVM_memcell *translate_operand(VMArg *arg, AVM_memcell *reg);
