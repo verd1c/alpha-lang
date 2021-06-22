@@ -1,11 +1,6 @@
 #ifndef __VMARG__
 #define __VMARG__
 
-#include <vector>
-#include <string>
-
-using namespace std;
-
 enum VMOpcode_t {
     assign_v, add_v, sub_v,
     mul_v, div_v, mod_v,

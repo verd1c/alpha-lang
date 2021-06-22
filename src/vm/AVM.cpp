@@ -1,16 +1,19 @@
-// AVM.cpp : This file contains the 'main' function. Program execution begins and ends there.
-//
 #include <fstream>
 #include <iostream>
 #include "vm.h"
 #include "vmarg.h"
 
+// watch
+VM *debug;
+
 int main()
 {
+    // pain
     VM vm = VM();
+    debug = &vm;
     vm.parse("target.abc");
     while (!vm.exec_finished) {
         vm.execute_cycle();
     }
-    //vm.printInstructions();
+    return 1;
 }

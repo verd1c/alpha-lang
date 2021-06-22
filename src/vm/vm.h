@@ -2,11 +2,13 @@
 #define __VM__
 
 #include <iostream>
+#include <vector>
+#include <string>
+#include <stdlib.h>
 #include "vmarg.h"
 #include "structs.h"
 
-
-using namespace std;
+extern int times;
 
 class VM {
 public:
@@ -15,18 +17,18 @@ public:
 	unsigned int instruction_len;
 
 	/* Constants */
-	vector<Instruction> instructions;
-	vector<double> nums;
-	vector<string> strings;
-	vector<userfunc> userfuncs;
-	vector<string> libfuncs;
-	unsigned totalGlobals = 0;
+	std::vector<Instruction> instructions;
+	std::vector<double> nums;
+	std::vector<std::string> strings;
+	std::vector<userfunc> userfuncs;
+	std::vector<std::string> libfuncs;
+	unsigned totalGlobals;
 
 	/* Dispatcher */
-	bool exec_finished = false;
-	unsigned pc = 0;
-	unsigned curr_line = 0;
-	unsigned code_size = 0;
+	bool exec_finished;
+	unsigned pc;
+	unsigned curr_line;
+	unsigned code_size;
 	//Instruction *code = 0;
 
 	/* Memory */
@@ -36,17 +38,18 @@ public:
 	AVM_memcell retval;
 	unsigned top;
 	unsigned topsp;
-	unsigned totalActuals = 0;
+	unsigned totalActuals;
 	AVMStack stack;
 
 	AVM_memcell *translate_operand(VMArg *arg, AVM_memcell *reg);
+	void vmerr(std::string err);
 
 	VM();
 
 	int parse(const char *fname);
 	unsigned int getMagicNumber();
 	void printInstructions();
-	vector<Instruction> getInstructions();
+	std::vector<Instruction> getInstructions();
 
 	void execute_cycle(void);
 };

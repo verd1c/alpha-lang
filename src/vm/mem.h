@@ -3,6 +3,7 @@
 
 #include <vector>
 #include <stack>
+#include <stdlib.h>
 #include "vmarg.h"
 #include "vm.h"
 #include "structs.h"
@@ -36,7 +37,24 @@ namespace mem {
     void call_save_environment(VM *vm);
     void calllibfunc(VM *vm, char *id);
     unsigned totalactuals(VM *vm);
+    userfunc *getfuncinfo(VM *vm, unsigned i);
     AVM_memcell *getactual(VM *vm, unsigned i);
+}
+
+namespace lib {
+    void print(VM *vm);
+    void input(VM *vm);
+    void objectmemberkeys(VM *vm);
+    void objecttotalmembers(VM *vm);
+    void objectcopy(VM *vm);
+    void totalarguments(VM *vm);
+    void argument(VM *vm);
+    void typeoff(VM *vm);
+    void strtonum(VM *vm);
+    void sqrtt(VM *vm);
+    void coss(VM *vm);
+    void sinn(VM *vm);
+
 }
 
 #endif

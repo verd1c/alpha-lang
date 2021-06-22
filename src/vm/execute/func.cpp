@@ -17,9 +17,8 @@ void Execute::call(VM *vm, Instruction *instr) {
 	case AVM_memcell_t::libfunc_m:
 		mem::calllibfunc(vm, func->data.libfuncVal);
 		break;
-
 	default:
-		printf("AAAAAAAAAAAAA\n");
+		vm->vmerr(" runtime error: attempting to call a non function ");
 		vm->exec_finished = true;
 		return;
 	}
@@ -40,9 +39,10 @@ void Execute::funcenter(VM *vm, Instruction *instr) {
 	assert(vm->pc == func->data.funcVal);
 
 	vm->totalActuals = 0;
-	//userfunc *funcInfo = avm_getfuncinfo(vm->pc);
-	//vm->topsp = vm->top;
-	//vm->top = vm->top - funcInfo->local_size;
+	userfunc *funcInfo = mem::getfuncinfo(vm, vm->pc);
+	vm->topsp = vm->top;
+	vm->top = vm->top - funcInfo->local_size;
+
 }
 
 void Execute::funcexit(VM *vm, Instruction *instr) {

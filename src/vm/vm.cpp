@@ -5,8 +5,16 @@
 #include "mem.h"
 #include "execute.h"
 
+int times;
+
 VM::VM() {
 	this->top = AVM_STACKSIZE - 1;
+	this->totalGlobals = 0;
+	this->exec_finished = false;
+	this->pc = 0;
+	this->curr_line = 0;
+	this->code_size = 0;
+	this->totalActuals = 0;
 	return;
 }
 
@@ -45,7 +53,7 @@ int VM::parse(const char *fname) {
 	binary.read(reinterpret_cast<char *>(&len), sizeof(unsigned));
 	for (int i = 0; i < len; i++) {
 		char *str = breadstr(&binary);
-		this->strings.push_back(string(str));
+		this->strings.push_back(std::string(str));
 		//cout << "String: " << this->strings.front() << "\n";
 	}
 
@@ -53,7 +61,7 @@ int VM::parse(const char *fname) {
 	for (int i = 0; i < len; i++) {
 		double d;
 		char *str = breadstr(&binary);
-		d = stod(str);
+		d = std::stod(str);
 		//binary.read(reinterpret_cast<char *>(&d), sizeof(double));
 		this->nums.push_back(d);
 		//cout << "Num : " << d << "\n";
@@ -72,7 +80,7 @@ int VM::parse(const char *fname) {
 	binary.read(reinterpret_cast<char *>(&len), sizeof(unsigned));
 	for (int i = 0; i < len; i++) {
 		char *str = breadstr(&binary);
-		this->libfuncs.push_back(string(str));
+		this->libfuncs.push_back(std::string(str));
 		//cout << "Libfunc: " << this->libfuncs.front() << "\n";
 	}
 
@@ -188,7 +196,7 @@ AVM_memcell *VM::translate_operand(VMArg *arg, AVM_memcell *reg) {
 		return reg;
 	case VMArg_t::string:
 		reg->type = AVM_memcell_t::string_m;
-		reg->data.strVal = strdup(this->strings.at(arg->val).c_str());
+		reg->data.strVal =	(char*)this->strings.at(arg->val).c_str();
 		return reg;
 	case VMArg_t::bool_a:
 		reg->type = AVM_memcell_t::bool_m;
@@ -199,7 +207,7 @@ AVM_memcell *VM::translate_operand(VMArg *arg, AVM_memcell *reg) {
 		return reg;
 	case VMArg_t::userfunc:
 		reg->type = AVM_memcell_t::userfunc_m;
-		reg->data.funcVal = arg->val;
+		reg->data.funcVal = userfuncs.at(arg->val).address;
 		return reg;
 	case VMArg_t::libfunc:
 		reg->type = AVM_memcell_t::libfunc_m;
@@ -219,13 +227,13 @@ void VM::execute_cycle(void) {
 		}
 		else {
 			if (pc >= code_size) {
-				printf("BUG?!?!\n");
+				vmerr(" unknown error ");
 			}
 
 			Instruction *instr = &instructions.at(pc);
 
 			if (instr->op < 0 || instr->op > nop_v) {
-				printf("BUG???!?!?\n");
+				vmerr(" binary file parsing error ");
 			}
 
 			if (instr->src_line) {
@@ -235,6 +243,9 @@ void VM::execute_cycle(void) {
 			unsigned old_pc = pc;
 
 			// execute
+			if (pc == 158) {
+				printf("");
+			}
 			(*exec_funcs[instr->op])(this, instr);
 
 			if (pc == old_pc) {

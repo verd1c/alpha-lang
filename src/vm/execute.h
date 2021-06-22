@@ -1,6 +1,8 @@
 #ifndef __EXECUTE__
 #define __EXECUTE__
 
+#include <stdio.h>
+#include <iostream>
 #include "vmarg.h"
 #include "vm.h"
 

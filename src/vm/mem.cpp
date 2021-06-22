@@ -21,7 +21,7 @@ memclear::func_t memclear::funcs[] = {
 };
 
 void memclear::clstring(AVM_memcell *mc) {
-	free(mc->data.strVal);
+	//free(mc->data.strVal);
 }
 
 void memclear::cltable(AVM_memcell *mc) {
@@ -56,6 +56,14 @@ void mem::assign(AVM_memcell *lv, AVM_memcell *rv) {
 
 	if (lv->type == AVM_memcell_t::string_m) {
 		lv->data.strVal = strdup(rv->data.strVal);
+	}
+}
+
+userfunc *mem::getfuncinfo(VM *vm, unsigned i) {
+
+	//assert(i>=0 && i< vm->userfunc)
+	for (int j = 0; j < vm->userfuncs.size(); j++) {
+	if (vm->userfuncs.at(j).address == i) return &vm->userfuncs.at(j);
 	}
 }
 
@@ -100,16 +108,46 @@ char *strr(AVM_memcell *mc) {
 	return mc->data.strVal;
 }
 
-void libfunc_print (VM *vm) {
-	unsigned n = mem::totalactuals(vm);
-	for (unsigned i = 0; i < n; i++) {
-		char *str = tostring::avm_tostring(vm, mem::getactual(vm, i));
-		puts(str);
-	}
-}
-
 library_func_t avm_getlibraryfunc(VM *vm, char *id) {
-	return libfunc_print;
+	if (strcmp(id, "print") == 0) {
+		return lib::print;
+	}
+	else if (strcmp(id, "input") == 0) {
+		return lib::input;
+	}
+	else if (strcmp(id, "objectmemberkeys") == 0) {
+		return lib::objectmemberkeys;
+	}
+	else if (strcmp(id, "objecttotalmembers") == 0) {
+		return lib::objecttotalmembers;
+	}
+	else if (strcmp(id, "objectcopy") == 0) {
+		return lib::objectcopy;
+	}
+	else if (strcmp(id, "totalarguments") == 0) {
+		return lib::totalarguments;
+	}
+	else if (strcmp(id, "argument") == 0) {
+		return lib::argument;
+	}
+	else if (strcmp(id, "typeof") == 0) {
+		return lib::typeoff;
+	}
+	else if (strcmp(id, "strtonum") == 0) {
+		return lib::strtonum;
+	}
+	else if (strcmp(id, "sqrt") == 0) {
+		return lib::sqrtt;
+	}
+	else if (strcmp(id, "cos") == 0) {
+		return lib::coss;
+	}
+	else if (strcmp(id, "sin") == 0) {
+		return lib::sinn;
+	}
+	else {
+		return 0;
+	}
 }
 
 void mem::calllibfunc(VM *vm, char *id) {
