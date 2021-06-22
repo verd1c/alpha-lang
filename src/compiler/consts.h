@@ -10,6 +10,8 @@ typedef struct incomplete_jump incomplete_jump;
 
 extern unsigned int currQuad;
 
+int *debug;
+
 enum expand_t {
     EXPAND_NUM,
     EXPAND_STRING,

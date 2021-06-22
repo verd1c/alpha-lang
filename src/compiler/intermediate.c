@@ -55,6 +55,53 @@ void expand(void) {
 	return;
 }
 
+struct ExprList *mkExprList() {
+	struct ExprList *el;
+	el = (struct ExprList *)malloc(sizeof(struct ExprList));
+	el->val = NULL;
+	el->next = NULL;
+	return el;
+}
+
+void addExprList(struct ExprList *head, Expr *node) {
+	struct ExprList *iter;
+
+	if (!head->val) {
+		head->val = node;
+	}
+
+	iter = head;
+
+	while (iter->next) {
+		iter = iter->next;
+	}
+
+	iter->next = (struct ExprList *)malloc(sizeof(struct ExprList));
+	iter->next->val = node;
+	iter->next->next = NULL;
+	return;
+}
+
+void patchExprList(struct ExprList *head) {
+	int count = 0;
+	struct ExprList *iter;
+
+	iter = head;
+
+	while (iter) {
+		count++;
+		printf("%s ?\n", iter->val->sym->value.varValue->name);
+		iter = iter->next;
+	}
+
+	iter = head;
+	count = count - 1;
+	while (iter) {
+		iter->val->sym->offset = count--;
+		iter = iter->next;
+	}
+}
+
 void emit(
 	enum iopcode_t	op,
 	Expr* result,
@@ -192,11 +239,19 @@ SymTableEntry* new_temp(SymTable* t, int scope) {
 
 	t_name = new_temp_name();
 
-	e = lookup_no_type(t, t_name, scope);
+	scopespace_t dd = currscopespace();
+	printf("At quad %d I am at scope space: %d\n", currQuad, dd);
+	if (dd == 0) {
+		e = lookup_no_type(t, t_name, 0);
+	}
+	else {
+		e = lookup_no_type(t, t_name, scope);
+	}
 
-	if (e)
+	if (e) {
 		return e;
-	else{
+	}
+	else {
 
 		// BREAK EVERYTHING
 		if (scope == 0) {
@@ -205,9 +260,7 @@ SymTableEntry* new_temp(SymTable* t, int scope) {
 		else {
 			e = insert(t, t_name, scope, yylineno, LOCAL_VAR);
 		}
-		e->scspace = currscopespace();
-        e->offset = currscopeoffset();
-		inccurrscopeoffset();
+		//inccurrscopeoffset();
 		return e;
 	}
 }
@@ -236,14 +289,14 @@ Expr *make_call(SymTable* t, int scope, Expr *call, Expr *revelist) {
 	if (revelist->type != NIL_E) {
 		iter = revelist;
 		while (iter) {
-			emit(PARAM_I, NULL, iter, NULL, 0, 0);
+			emit(PARAM_I, NULL, iter, NULL, 0, yylineno);
 			iter = iter->next;
 		}
 	}
-	emit(CALL_I, NULL, call, NULL, 0, 0);
+	emit(CALL_I, NULL, call, NULL, 0, yylineno);
 
 	res = sym_expr(new_temp(t, scope));
-	emit(GETRETVAL_I, res, NULL, NULL, 0, 0);
+	emit(GETRETVAL_I, res, NULL, NULL, 0, yylineno);
 	return res;
 }
 

@@ -13,6 +13,14 @@ unsigned _curr_proc_quad;
 incomplete_jump *ij_head = (incomplete_jump*)0;
 unsigned ij_total = 0;
 
+void setArgsNull(Instruction *t) {
+
+    t->arg1.val = -1; t->arg1.type = 11;
+    t->arg2.val = -1; t->arg2.type = 11;
+    t->result.val = -1; t->result.type = 11;
+
+}
+
 void expand_table(enum expand_t expand_type){
     switch(expand_type){
         case EXPAND_NUM:
@@ -102,7 +110,7 @@ void patch_jump_label(unsigned instr_no, unsigned addr) {
 void patch_incomplete_jumps() {
     int i;
 
-    for (int i = 0; i < currIJ; i++) {
+    for (i = 0; i < currIJ; i++) {
         if (ij_head[i].iaddress == currQuad) {
             patch_jump_label(ij_head[i].instrNo, currInstr);
         }
@@ -141,6 +149,7 @@ void make_operand(Expr *e, VMArg *arg){
         case TABLEITEM_E:
         case ARITHEXPR_E:
         case BOOLEXPR_E:
+        case ASSIGNEXPR_E:
         case NEWTABLE_E: {
             assert(e->sym);
 
@@ -244,11 +253,16 @@ unsigned consts_newnumber(double n){
 
 unsigned libfuncs_newused(char *s){
     unsigned addr;
+    int i;
 
     if(currLib == totalNamedLibfuncs)
         expand_table(EXPAND_LIB);
 
     addr = currLib;
+
+    for (i = 0; i < currLib; i++) {
+        if (strcmp(s, namedLibfuncs[i]) == 0) return i;
+    }
 
     namedLibfuncs[currLib++] = (char*)strdup(s);
 
@@ -264,9 +278,6 @@ unsigned userfuncs_newfunc(SymTableEntry *sym){
 
     addr = currUser;
 
-    for (i = 0; i < currUser; i++) {
-        if (strcmp(sym->value.funcValue->name, userFuncs[i].id) == 0) return i;
-    }
 
     userfunc *f = userFuncs + currUser++;
 
@@ -336,6 +347,9 @@ unsigned curr_processed_quad(){
 
 void generate(enum iopcode_t op, Quad *quad){
    Instruction t;
+   setArgsNull(&t);
+   t.src_line = quad->line;
+   
    t.opcode = op;
    make_operand(quad->arg1, &t.arg1);
    make_operand(quad->arg2, &t.arg2);
@@ -346,13 +360,17 @@ void generate(enum iopcode_t op, Quad *quad){
 
 void generate_relational (enum iopcode_t op, Quad *quad) {
     struct instruction t;
+    setArgsNull(&t);
+    t.src_line = quad->line;
     t.opcode = op;
     make_operand(quad->arg1, &t.arg1);
     make_operand(quad->arg2, &t.arg2);
     t.result.type = label_a;
 
-    if (quad->label < curr_processed_quad() )
+    if (quad->label < curr_processed_quad()) {
+        printf("taddress -> %d\n", quads[quad->label].taddress);
         t.result.val = quads[quad->label].taddress;
+    }
     else
         add_incomplete_jump(next_instruction_label(), quad->label);
 
@@ -364,6 +382,12 @@ void generate_relational (enum iopcode_t op, Quad *quad) {
 void generate_ADD(Quad *quad) { generate(add_v, quad); }
 void generate_SUB(Quad *quad) { generate(sub_v, quad); }
 void generate_MUL(Quad *quad) { generate(mul_v, quad); }
+void generate_UMINUS(Quad *quad) { 
+
+    quad->arg2 = num_expr(-1);
+
+    generate(mul_v,quad);
+}
 void generate_DIV(Quad *quad) { generate(div_v, quad); }
 void generate_MOD(Quad *quad) { generate(mod_v, quad); }
 void generate_NEWTABLE(Quad *quad) { generate(newtable_v, quad); }
@@ -384,6 +408,8 @@ void generate_IF_LESSEQ(Quad *quad) { generate_relational(jle_v, quad); }
 void generate_NOT (Quad *quad) {
     quad->taddress = next_instruction_label();
     Instruction t;
+    setArgsNull(&t);
+    t.src_line = quad->line;
     t.opcode = jeq_v;
     make_operand(quad->arg1, &t.arg1);
     make_booloperand(&t.arg2, 0);
@@ -411,6 +437,8 @@ void generate_NOT (Quad *quad) {
 void generate_OR (Quad *quad) {
     quad->taddress = next_instruction_label();
     Instruction t;
+    setArgsNull(&t);
+    t.src_line = quad->line;
     t.opcode = jeq_v;
     make_operand(quad->arg1, &t.arg1);
     make_booloperand(&t.arg2, 1);
@@ -441,6 +469,8 @@ void generate_OR (Quad *quad) {
 void generate_AND(Quad *quad) {
     quad->taddress = next_instruction_label();
     Instruction t;
+    setArgsNull(&t);
+    t.src_line = quad->line;
     t.opcode = jeq_v;
     make_operand(quad->arg1, &t.arg1);
     make_booloperand(&t.arg2, 1);
@@ -471,6 +501,8 @@ void generate_AND(Quad *quad) {
 void generate_PARAM(Quad *quad) {
 	quad->taddress = next_instruction_label();
 	Instruction t;
+    setArgsNull(&t);
+    t.src_line = quad->line;
 	t.opcode = pusharg_v;
 	make_operand(quad->arg1, &t.arg1);
 	emit_instr(t);
@@ -479,6 +511,8 @@ void generate_PARAM(Quad *quad) {
 void generate_CALL(Quad *quad) {
 	quad->taddress = next_instruction_label();
 	Instruction t;
+    setArgsNull(&t);
+    t.src_line = quad->line;
 	t.opcode = call_v;
 	make_operand(quad->arg1, &t.arg1);
 	emit_instr(t);
@@ -487,6 +521,8 @@ void generate_CALL(Quad *quad) {
 void generate_GETRETVAL(Quad *quad) {
 	quad->taddress = next_instruction_label();
 	Instruction t;
+    setArgsNull(&t);
+    t.src_line = quad->line;
 	t.opcode = assign_v;
 	make_operand(quad->result, &t.result);
 	make_retvaloperand(&t.arg1);
@@ -501,6 +537,8 @@ void generate_FUNCSTART (Quad *quad) {
 
     push(_func_stack, (void*)f);
     Instruction t;
+    setArgsNull(&t);
+    t.src_line = quad->line;
     t.opcode = funcenter_v;
     make_operand(quad->result, &t.result);
     make_booloperand(&t.arg2, 1);
@@ -513,9 +551,19 @@ void generate_RETURN (Quad *quad) {
     quad->taddress = next_instruction_label();
 
     Instruction t;
+    setArgsNull(&t);
+    t.src_line = quad->line;
     t.opcode=assign_v;
     make_retvaloperand(&t.result);
     make_operand(quad->result, &t.arg1);
+
+
+    //xd
+    if (!quad->result) {
+        t.arg1.type = nil_a;
+        t.arg1.val = -1;
+    }
+
     emit_instr(t);
 
 
@@ -553,7 +601,7 @@ generator_func_t generators[] = {
     generate_MUL,
     generate_DIV,
     generate_MOD,
-    generate_ADD,
+    generate_UMINUS,
     generate_OR,
     generate_OR,
     generate_NOT,
@@ -648,7 +696,9 @@ void print_target() {
         else if (instr.opcode == pusharg_v || instr.opcode == call_v) {
             encode_vmarg(stdout, instr.arg1);
         }
-        else {
+        else if (instr.opcode == newtable_v) {
+            encode_vmarg(stdout, instr.result);
+        }else {
             encode_vmarg(stdout, instr.result);
             encode_vmarg(stdout, instr.arg1);
             encode_vmarg(stdout, instr.arg2);

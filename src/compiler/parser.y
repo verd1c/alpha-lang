@@ -47,6 +47,7 @@
     int _func_lvalue_check = 0;
     int _in_control = 0;
     long _temp_counter = 0;
+    int _func_locals = 0;
 
     int _valid_comp = 1;
 
@@ -56,6 +57,8 @@
     extern FILE *yyin;
     SymTable *symTable;
     Stack *_call_stack;
+    Stack *_funcstart_stack;
+    struct ExprList *idexprlist;
     OffsetStack *scopeoffsetstack;
 
 
@@ -103,7 +106,7 @@
 
 program     :   statements
 
-statements  :   statements statement
+statements  :   statements {} statement
                 | statement 
                 ;
 
@@ -111,22 +114,22 @@ statement   :   expression SEMICOLON
                     {
                         $$ = stmt();
                         mk_bool_vmasm($1);
-                        reset_temp_counter();
+                        //reset_temp_counter();
                     }
                 | ifstmt
                     {
                         $$ = $1;
-                        reset_temp_counter();
+                        //reset_temp_counter();
                     }
                 | whilestmt
                     {
                         $$ = stmt();
-                        reset_temp_counter();
+                        //reset_temp_counter();
                     }
                 | forstmt
                     {
                         $$ = stmt();
-                        reset_temp_counter();
+                        //reset_temp_counter();
                     }
                 | returnstmt            {
                                             SymTableEntry *curfunc = (SymTableEntry*)top(_call_stack);    
@@ -148,7 +151,7 @@ statement   :   expression SEMICOLON
                                                 else _in_control=0;
                                             }
                                             $$ = $1; // might need new
-                                            reset_temp_counter();
+                                            //reset_temp_counter();
                                         }
 
                 | BREAK SEMICOLON       {
@@ -162,7 +165,7 @@ statement   :   expression SEMICOLON
                                             $$ = stmt();
                                             $$->breaklist = next_quad();
                                             emit(JUMP_I, NULL, NULL, NULL, 0, yylineno);
-                                            reset_temp_counter();
+                                            //reset_temp_counter();
                                         }      
                 | CONTINUE SEMICOLON    { 
                                             if(scope==0 && _in_control==0){
@@ -176,22 +179,22 @@ statement   :   expression SEMICOLON
                                             $$ = stmt();
                                             $$->contlist = next_quad();
                                             emit(JUMP_I, NULL, NULL, NULL, 0, yylineno);
-                                            reset_temp_counter();
+                                            //reset_temp_counter();
                                         }
                 | block
                     {
                         $$ = $1;
-                        reset_temp_counter();
+                        //reset_temp_counter();
                     }
                 | funcdef
                     {
                         $$ = stmt();
-                        reset_temp_counter();
+                        //reset_temp_counter();
                     }
                 | SEMICOLON
                     {
                         $$ = stmt();
-                        reset_temp_counter();
+                        //reset_temp_counter();
                     }
                 ;
 
@@ -398,7 +401,7 @@ term        :   LEFT_PARENTHESIS expression RIGHT_PARENTHESIS
                             if(ex->type == TABLEITEM_E){
                                 $$ = emit_if_table_item(symTable, scope, ex);
                                 emit(ADD_I, $$, $$, num_expr(1), 0, yylineno);
-                                emit(TABLESETELEM_I, $$, ex, ex->index, 0, yylineno);
+                                emit(TABLESETELEM_I, ex, ex->index, $$, 0, yylineno);
                             }else{
                                 emit(ADD_I, ex, ex, num_expr(1), 0, yylineno);
                                 $$ = expr(ARITHEXPR_E);
@@ -450,7 +453,7 @@ term        :   LEFT_PARENTHESIS expression RIGHT_PARENTHESIS
                                 val = emit_if_table_item(symTable, scope, ex);
                                 emit(ASSIGN_I, $$, val, NULL, 0, yylineno);
                                 emit(ADD_I, val, val, num_expr(1), 0, yylineno);
-                                emit(TABLESETELEM_I, val, ex, ex->index, 0, yylineno);
+                                emit(TABLESETELEM_I, ex, ex->index, val, 0, yylineno);
                             }else{
                                 emit(ASSIGN_I, $$, ex, NULL, 0, yylineno);
                                 emit(ADD_I, ex, ex, num_expr(1), 0, yylineno);
@@ -498,7 +501,7 @@ term        :   LEFT_PARENTHESIS expression RIGHT_PARENTHESIS
                             if(ex->type == TABLEITEM_E){
                                 $$ = emit_if_table_item(symTable, scope, ex);
                                 emit(SUB_I, $$, $$, num_expr(1), 0, yylineno);
-                                emit(TABLESETELEM_I, $$, ex, ex->index, 0, yylineno);
+                                emit(TABLESETELEM_I, ex, ex->index, $$, 0, yylineno);
                             }else{
                                 emit(SUB_I, ex, ex, num_expr(1), 0, yylineno);
                                 $$ = expr(ARITHEXPR_E);
@@ -550,7 +553,7 @@ term        :   LEFT_PARENTHESIS expression RIGHT_PARENTHESIS
                                 val = emit_if_table_item(symTable, scope, ex);
                                 emit(ASSIGN_I, $$, val, NULL, 0, yylineno);
                                 emit(SUB_I, val, val, num_expr(1), 0, yylineno);
-                                emit(TABLESETELEM_I, val, ex, ex->index, 0, yylineno);
+                                emit(TABLESETELEM_I, ex, ex->index, val, 0, yylineno);
                             }else{
                                 emit(ASSIGN_I, $$, ex, NULL, 0, yylineno);
                                 emit(SUB_I, ex, ex, num_expr(1), 0, yylineno);
@@ -682,15 +685,12 @@ lvalue      :   ID                          {
                                                         $$ = sym_expr(insert(symTable, $1, scope, yylineno, GLOBAL_VAR));
                                                     else
                                                         $$ = sym_expr(insert(symTable, $1, scope, yylineno, LOCAL_VAR));
-                                                    $$->sym->scspace = currscopespace();
-                                                    $$->sym->offset = currscopeoffset();
-                                                    printf("Sym offset -> %d\n", $$->sym->offset);
-                                                    inccurrscopeoffset();
                                                 }else{
 
                                                     // If exists, set value for further checks
                                                     //printf("Setting valuue for further checks on-> %s %s\n", e->value.varValue->name, typeToString[e->type]);
                                                     $$ = sym_expr(e);
+                                                    printf("IN HERE for %s\n", e->value.funcValue->name);
                                                 }
                                                 _further_checks = 1;
                                                 _func_lvalue_check = 1;
@@ -706,9 +706,6 @@ lvalue      :   ID                          {
                                                         }else{
                                                             $$ = sym_expr(insert(symTable, $2, scope, yylineno, LOCAL_VAR));
                                                         }
-                                                        $$->sym->scspace = currscopespace();
-                                                        $$->sym->offset = currscopeoffset();
-                                                        inccurrscopeoffset();
                                                     }else{
                                                         printf("input:%d: error: local symbol %s is attempting to shadow a library function\n", yylineno, $2);
                                                         _valid_comp = 0;
@@ -751,7 +748,7 @@ member      :   lvalue DOT ID
                 | lvalue LEFT_BRACE expression RIGHT_BRACE  
                     {
                         Expr *res;
-
+                        printf("Hallo in here for %s\n", $1->sym->value.varValue->name);
                         $1 = emit_if_table_item(symTable, scope, $1);
                         res = expr(TABLEITEM_E);
                         res->sym = $1->sym;
@@ -805,7 +802,7 @@ call        :   call LEFT_PARENTHESIS elist RIGHT_PARENTHESIS
                                                     }else
                                                         insert(symTable, e->value.varValue->name, scope, yylineno, LOCAL_VAR);
                                                 }else if(!is_valid(_call_stack, e, scope)){
-                                                    if(e->value.varValue->scope != scope){
+                                                    if(e->value.varValue->scope != scope && e->value.varValue->scope != 0){
                                                         printf("input:%d: error: could not access variable %s\n", yylineno, e->value.varValue->name);
                                                         _valid_comp = 0;
                                                         YYABORT;
@@ -817,14 +814,29 @@ call        :   call LEFT_PARENTHESIS elist RIGHT_PARENTHESIS
                                         }
 
                                         if($2->isMethod){
+                                            Expr *h = $1;
 
-                                            $1->next = $2->elist;
-                                            $2->elist = $1;
+                                            if($2->elist->type == NIL_E){
+                                                $1 = member_expr(symTable, scope, $1, orig_name); 
+                                                emit_if_table_item(symTable, scope, $1);
 
-                                            $1 = emit_if_table_item(symTable, scope, member_expr(symTable, scope, $1, orig_name));
+                                                $1->next = NULL;
+                                                $$ = make_call(symTable, scope, $1, $1);
+                                            }else{
+                                               
+    
+                                                $1 = member_expr(symTable, scope, $1, orig_name);
+                                                emit_if_table_item(symTable, scope, $1);
+
+                                                $1->next = $2->elist;
+                                                $2->elist = $1;
+                    
+                                                $$ = make_call(symTable, scope, $1, reverse_elist(&$2->elist));
+                                            }
+
+                                        }else{
+                                            $$ = make_call(symTable, scope, $1, reverse_elist(&$2->elist));
                                         }
-
-                                        $$ = make_call(symTable, scope, $1, reverse_elist(&$2->elist));
                                     }
                 | LEFT_PARENTHESIS funcdef RIGHT_PARENTHESIS LEFT_PARENTHESIS elist RIGHT_PARENTHESIS {
                                                         Expr *g = $2;
@@ -868,9 +880,11 @@ objectdef   :    LEFT_BRACE elist RIGHT_BRACE
                         t->sym  = new_temp(symTable, scope);
                         emit(TABLECREATE_I,t,NULL,NULL,next_quad(),yylineno);
                         Expr* tmp = $2;
-                        while(tmp != NULL){
-                            emit(TABLESETELEM_I,t,num_expr(i++),tmp,next_quad(),yylineno);
-                            tmp = tmp->next;
+                        if(tmp->type != NIL_E){
+                            while(tmp != NULL){
+                                emit(TABLESETELEM_I,t,num_expr(i++),tmp,next_quad(),yylineno);
+                                tmp = tmp->next;
+                            }
                         }
                         $$ = t;
                     }
@@ -945,7 +959,7 @@ blockstmt   :   statement
                     }
                 ;
 
-funcdef     :   funcstart LEFT_PARENTHESIS {scope++;} idlist {enterscopespace(); resetfunctionlocalsoffset();} RIGHT_PARENTHESIS  
+funcdef     :   funcstart LEFT_PARENTHESIS {scope++;} idlist { enterscopespace(); resetfunctionlocalsoffset();} RIGHT_PARENTHESIS  
                     {    
                         scope--; 
                         _func_count++;
@@ -962,7 +976,7 @@ funcdef     :   funcstart LEFT_PARENTHESIS {scope++;} idlist {enterscopespace();
                             if($1 && $1->sym)
                                 $1->sym->total_locals = $8;
 
-                            printf("TOTAL LOCALS FOR SMTH: %d\n", $8);
+                            //printf("TOTAL LOCALS FOR SMTH: %d\n", $8);
                             
                             restorecurrscopeoffset(pop_and_top_offset(scopeoffsetstack));
 
@@ -973,6 +987,9 @@ funcdef     :   funcstart LEFT_PARENTHESIS {scope++;} idlist {enterscopespace();
                                 pop(_call_stack);
 
                             emit(FUNCEND_I, sym_expr(last), 0, 0, 0, yylineno);
+                            int toPatch = *((int*)top(_funcstart_stack));
+                            pop(_funcstart_stack);
+                            patch_label(toPatch, next_quad());
                             $$ = $1;
                         }
                 ;
@@ -980,7 +997,7 @@ funcdef     :   funcstart LEFT_PARENTHESIS {scope++;} idlist {enterscopespace();
 funcbody    :   block   
                     {
                         $$ = currscopeoffset();
-                        printf("CURSCOPEOFFSET : %d\n", $$);
+                        //printf("CURSCOPEOFFSET : %d\n", $$);
                         exitscopespace();
                     }
 
@@ -1016,8 +1033,13 @@ funcstart   :   FUNCTION ID {
                                 if($$ && $$->sym)
                                     $$->sym->iaddress = next_quad();
 
-                                if($$)
+                                if($$){
+                                    int *ti = (int*)malloc(sizeof(int));
+                                    *ti = next_quad();
+                                    push(_funcstart_stack, (void*)ti);
+                                    emit(JUMP_I, 0, 0, 0, next_quad(), yylineno);
                                     emit(FUNCSTART_I, $$, 0, 0, 0, yylineno);
+                                }
 
 
 
@@ -1034,14 +1056,16 @@ funcstart   :   FUNCTION ID {
                                 sprintf(s, "$%d", _anon_func_counter);
 
                                 $$ = sym_expr(insert(symTable, s, scope, yylineno, USER_FUNC));
-                                $$->sym->scspace = currscopespace();
-                                $$->sym->offset = currscopespace();
 
                                 _anon_func_counter++;
 
                                 if($$ && $$->sym)
                                     $$->sym->iaddress = next_quad();
 
+                                int *ti = (int*)malloc(sizeof(int));
+                                *ti = next_quad();
+                                push(_funcstart_stack, (void*)ti);
+                                emit(JUMP_I, 0, 0, 0, next_quad(), yylineno);
                                 emit(FUNCSTART_I, $$, 0, 0, 0, yylineno);
                                 push_offset(scopeoffsetstack, currscopeoffset());
 
@@ -1065,8 +1089,14 @@ const       :   NUM         {
                                 $$ = bool_expr(0);
                             }
 
-idlist      :   arg {}
-                | arg COMMA idlist {}
+idlist      :   arg 
+                    {
+                        _func_locals++;
+                    }
+                | arg COMMA idlist 
+                    {
+                        _func_locals++;
+                    }
                 | {}
                 ;
 
@@ -1102,8 +1132,8 @@ ifstmt      :   ifprefix statement
                 | ifprefix statement elseprefix statement
                     {
                         $$ = stmt();
-                        $$->contlist = $2->contlist;
-                        $$->breaklist = $2->breaklist;
+                        $$->contlist = llist_merge($2->contlist, $4->contlist);
+                        $$->breaklist = llist_merge($2->breaklist, $4->breaklist);
                         patch_label($1, $3 + 1);
                         patch_label($3, next_quad());
                     }
@@ -1182,12 +1212,12 @@ N           :       {
 
 returnstmt  :   RETURN SEMICOLON
                     {
-                        emit(RET_I, NULL, NULL, NULL, next_quad(), yylineno);
+                        emit(RET_I, NULL, NULL, NULL, 0, yylineno);
                     }
                 | RETURN expression SEMICOLON
                     {
                         mk_bool_vmasm($2);
-                        emit(RET_I, $2, NULL, NULL, next_quad(), yylineno);
+                        emit(RET_I, $2, NULL, NULL, 0, yylineno);
                         $$ = $2;
                     }
                 ;
@@ -1285,6 +1315,7 @@ int main(int argc, char **argv){
     init_quads();
     symTable = init_sym_table();
     _call_stack = stack();
+    _funcstart_stack = stack();
     scopeoffsetstack = init_offset_stack();
     yyparse();
 
@@ -1299,7 +1330,7 @@ int main(int argc, char **argv){
 
     parse_target_code();
 
-    mk_bin("target.abc");
+    mk_bin("../AVM/target.abc");
 
     return 0;
 }

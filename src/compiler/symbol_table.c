@@ -199,6 +199,7 @@ SymTableEntry *insert(SymTable *t, char *name, int scope, int line, enum EntryTy
             t->table[h]->value.varValue->line = line;
             t->table[h]->scspace = currscopespace();
             t->table[h]->offset = currscopeoffset();
+            inccurrscopeoffset();
         }else{
             t->table[h]->value.funcValue = (Function*)malloc(sizeof(Function));
 
@@ -212,6 +213,7 @@ SymTableEntry *insert(SymTable *t, char *name, int scope, int line, enum EntryTy
             t->table[h]->value.funcValue->return_list = NULL;
             t->table[h]->scspace = currscopespace();
             t->table[h]->offset = currscopeoffset();
+            //inccurrscopeoffset();
         }
 
         t->table[h]->type = type;
@@ -250,6 +252,7 @@ SymTableEntry *insert(SymTable *t, char *name, int scope, int line, enum EntryTy
             iter->nextEntry->value.varValue->line = line;
             iter->nextEntry->scspace = currscopespace();
             iter->nextEntry->offset = currscopeoffset();
+            inccurrscopeoffset();
         }else{
             iter->nextEntry->value.funcValue = (Function*)malloc(sizeof(Function));
 
@@ -264,6 +267,7 @@ SymTableEntry *insert(SymTable *t, char *name, int scope, int line, enum EntryTy
             iter->nextEntry->value.funcValue->return_list = NULL;
             iter->nextEntry->scspace = currscopespace();
             iter->nextEntry->offset = currscopeoffset();
+            //inccurrscopeoffset();
         }
 
         iter->nextEntry->type = type;

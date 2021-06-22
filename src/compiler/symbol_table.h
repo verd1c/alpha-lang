@@ -10,7 +10,7 @@
 #define SIZE 512
 #define CALL_STACK_SIZE 64
 #define HASH_MULTIPLIER 65599
-
+extern int *debug;
 extern int scope;
 
 typedef enum scopespace_t {

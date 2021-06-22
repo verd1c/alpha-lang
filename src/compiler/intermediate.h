@@ -95,6 +95,15 @@ struct Stmt {
     llist_t contlist;
 };
 
+struct ExprList {
+    Expr *val;
+    struct ExprList *next;
+};
+
+struct ExprList *mkExprList();
+void addExprList(struct ExprList *head, Expr *node);
+void patchExprList(struct ExprList *head);
+
 // VM ASM creation
 unsigned next_quad(void);
 int is_arith(Expr *e);
