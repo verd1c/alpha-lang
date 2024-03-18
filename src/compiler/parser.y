@@ -1305,7 +1305,7 @@ int main(int argc, char **argv){
     if(argc > 1){
         if(!(yyin = fopen(argv[1], "r"))){
             printf("File not found\n");
-            exit(0);
+            exit(1);
         }
     }else{
         yyin = stdin;
@@ -1321,7 +1321,7 @@ int main(int argc, char **argv){
 
     if(!_valid_comp){
         printf("alpha: compilation failed\n");
-        return 0;
+        return 1;
     }
 
     //printSymTable(symTable);
@@ -1330,7 +1330,7 @@ int main(int argc, char **argv){
 
     parse_target_code();
 
-    mk_bin("../AVM/target.abc");
+    mk_bin(argc > 2 ? argv[2] : "target.abc");
 
     return 0;
 }
