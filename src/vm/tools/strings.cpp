@@ -54,7 +54,7 @@ char *tostring::avm_tostring(VM *vm, AVM_memcell *m)
 }
 
 char *tostring::number(VM *vm, AVM_memcell *m) {
-	char *st = (char *)malloc(strlen((char *)std::to_string(m->data.numVal).c_str()) * sizeof(char));
+	char *st = (char *)malloc((strlen((char *)std::to_string(m->data.numVal).c_str()) + 1) * sizeof(char));
 	strcpy(st, (char *)std::to_string(m->data.numVal).c_str());
 	return st;
 }

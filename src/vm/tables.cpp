@@ -1,6 +1,7 @@
 #include "structs.h"
 #include "mem.h"
 #include <assert.h>
+#include <cstdint>
 
 #define HASH_MULTIPLIER 65599
 
@@ -66,7 +67,7 @@ unsigned Table::hash(AVM_memcell *key) {
         }
         break;
     case table_m:
-        sum = (unsigned int)key->data.tableVal->addr * AVM_TABLE_HASHSIZE;
+        sum = (unsigned int)(uintptr_t)key->data.tableVal->addr * AVM_TABLE_HASHSIZE;
         break;
     case bool_m:
         sum = key->data.boolVar * HASH_MULTIPLIER;
